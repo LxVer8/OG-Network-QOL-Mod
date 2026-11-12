@@ -1,0 +1,17 @@
+# Gradle
+.gradle/
+build/
+bin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Minecraft / Fabric
+run/
+runs/
+logs/
+*.log
+fabric-loom-cache/
+
+# IDE settings
+.idea/
+*.iml
+.vscode/
