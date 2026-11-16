@@ -29,9 +29,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 .setDefaultValue("Y+U")
                 .setSaveConsumer(newValue -> config.menuKey = newValue)
                 .setTooltip(
-                    Text.literal("The key(s) used to open this menu."),
-                    Text.literal("Use + for combinations (e.g., Y+U)."),
-                    Text.literal("Type NONE to disable the keybind entirely.")
+                    Text.literal("The keys used to open this menu. Use + for combinations (for example, Y+U). Type NONE to disable the keybind entirely.")
                 )
                 .build());
 
@@ -73,6 +71,22 @@ public class ModMenuIntegration implements ModMenuApi {
                     Text.literal("Changes the texture of paper items used for Runes based on its kind (Omni, Astral, Celestial)")
                 )
                 .setSaveConsumer(newValue -> config.enableRuneTypeVisualizer = newValue)
+                .build());
+
+        general.addEntry(entryBuilder.startBooleanToggle(Text.literal("Enable Vote Tracker"), config.enableVoteTracker)
+                .setDefaultValue(true)
+                .setTooltip(
+                    Text.literal("Displays a countdown at the top right side of the screen to vote on each website.")
+                )
+                .setSaveConsumer(newValue -> config.enableVoteTracker = newValue)
+                .build());
+
+        general.addEntry(entryBuilder.startEnumSelector(Text.literal("Vote Tracker Location"), ModConfig.VoteLocation.class, config.voteTrackerLocation)
+                .setDefaultValue(ModConfig.VoteLocation.TOP_RIGHT)
+                .setSaveConsumer(newValue -> config.voteTrackerLocation = newValue)
+                .setTooltip(
+                    Text.literal("Select the corner of the screen where the vote tracker is displayed.")
+                )
                 .build());
 
         builder.setSavingRunnable(() -> config.save());

@@ -16,7 +16,8 @@
 		"client": [
 			"com.example.ognpricetooltips.PriceTooltipsClient",
 			"com.example.ognpricetooltips.ShulkerBoxValueTooltip",
-			"com.example.ognpricetooltips.RuneHighlighter"
+			"com.example.ognpricetooltips.RuneHighlighter",
+			"com.example.ognpricetooltips.VoteTracker"
 		],
 		"modmenu": [
 			"com.example.ognpricetooltips.ModMenuIntegration"
