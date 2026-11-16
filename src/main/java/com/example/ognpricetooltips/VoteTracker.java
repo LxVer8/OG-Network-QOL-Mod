@@ -210,10 +210,8 @@ public class VoteTracker implements ClientModInitializer {
             drawX = x - client.textRenderer.getWidth(text);
         }
 
-        // Create a black, unformatted copy of the text to act as the outline
         Text outlineText = Text.literal(text.getString()).formatted(Formatting.BLACK);
 
-        // Draw the outline in 8 directions around the text
         context.drawText(client.textRenderer, outlineText, drawX - 1, y - 1, 0xFFFFFFFF, false);
         context.drawText(client.textRenderer, outlineText, drawX, y - 1, 0xFFFFFFFF, false);
         context.drawText(client.textRenderer, outlineText, drawX + 1, y - 1, 0xFFFFFFFF, false);
@@ -225,7 +223,6 @@ public class VoteTracker implements ClientModInitializer {
         context.drawText(client.textRenderer, outlineText, drawX, y + 1, 0xFFFFFFFF, false);
         context.drawText(client.textRenderer, outlineText, drawX + 1, y + 1, 0xFFFFFFFF, false);
 
-        // Draw the actual colored text on top
         context.drawTextWithShadow(client.textRenderer, text, drawX, y, 0xFFFFFFFF);
     }
 }

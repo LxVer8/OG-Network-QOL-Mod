@@ -1,11 +1,9 @@
-# Important:
-This mod is published in Modrinth at [OG-Network QOL Mod](https://modrinth.com/mod/og-network-qol). This repository was made to have an easier way for people that are interested on the code to look at it without having to download anything.
-
 # Features:
 - Price Tooltip: Every single item in the game will have a small tooltip addition that states the cost to buy and sell on the /shop. This also applies when hovering a Shulker Box full of items.
 - Full Inventory Value: Any inventory will show a number with the value of all the items inside it. Hovering the number will show the most valuable items from it. This applies to your inventory as well.
 - Rune Type Visualizer: Based on the kind of Rune (Celestial, Omni or Astral) the color of the item will change to make them easier to recognize.
 - Rune Level Visualizer: Basen on the level of a Rune (I, II, III, and so on) a dot will appear in it. Green means the Rune is max level, orange means it is a level bellow max level, and red means that is anything bellow 2 levels from being max.
+- Vote Tracker: It adds a small text on (by default) the top-right corner of the screen that tracks how much time is left until you can vote again on each of the websites the server allows you to vote.
 
 # Future ideas:
 1. Quest Tracker: It would show on screen the current quests the player and how much they have left from it. If a quest it completed it would show a timer counting the time left for the next quests to be unlocked.

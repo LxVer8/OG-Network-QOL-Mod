@@ -3,9 +3,9 @@
 	"id": "ognpricetooltips",
 	"version": "${version}",
 	"name": "OG-Network QOL",
-	"description": "A client-side QOL mod for OG Network, featuring price tooltips, rune visualizers, and inventory values.",
+	"description": "A client-side QOL mod for OG Network.",
 	"authors": [
-		"YourNameHere"
+		"LxVer"
 	],
 	"contact": {},
 	"license": "CC0-1.0",
