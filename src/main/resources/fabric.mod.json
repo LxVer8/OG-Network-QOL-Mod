@@ -17,7 +17,11 @@
 			"com.example.ognpricetooltips.PriceTooltipsClient",
 			"com.example.ognpricetooltips.ShulkerBoxValueTooltip",
 			"com.example.ognpricetooltips.RuneHighlighter",
-			"com.example.ognpricetooltips.VoteTracker"
+			"com.example.ognpricetooltips.VoteTracker",
+			"com.example.ognpricetooltips.EnchantmentColorFix",
+			"com.example.ognpricetooltips.ChatGamesTracker",
+  			"com.example.ognpricetooltips.AnnouncementFilter",
+			"com.example.ognpricetooltips.SeismicSlamTracker"
 		],
 		"modmenu": [
 			"com.example.ognpricetooltips.ModMenuIntegration"

@@ -14,16 +14,16 @@ public class VoteCommand {
             dispatcher.register(ClientCommandManager.literal("qol")
                 .then(ClientCommandManager.literal("vote")
                     .then(ClientCommandManager.literal("complete")
-                        .then(ClientCommandManager.literal("MinecraftServerList").executes(context -> completeVote(context.getSource(), "MinecraftServerList")))
+                        .then(ClientCommandManager.literal("Minecraft-MP").executes(context -> completeVote(context.getSource(), "Minecraft-MP")))
                         .then(ClientCommandManager.literal("MinecraftBestServers").executes(context -> completeVote(context.getSource(), "MinecraftBestServers")))
                         .then(ClientCommandManager.literal("BlockAtlas").executes(context -> completeVote(context.getSource(), "BlockAtlas")))
                     )
                     .then(ClientCommandManager.literal("timer")
-                        .then(ClientCommandManager.literal("MinecraftServerList")
+                        .then(ClientCommandManager.literal("Minecraft-MP")
                             .then(ClientCommandManager.argument("hours", IntegerArgumentType.integer(0))
                                 .then(ClientCommandManager.argument("minutes", IntegerArgumentType.integer(0, 59))
                                     .then(ClientCommandManager.argument("seconds", IntegerArgumentType.integer(0, 59))
-                                        .executes(context -> setTimer(context.getSource(), "MinecraftServerList",
+                                        .executes(context -> setTimer(context.getSource(), "Minecraft-MP",
                                             IntegerArgumentType.getInteger(context, "hours"),
                                             IntegerArgumentType.getInteger(context, "minutes"),
                                             IntegerArgumentType.getInteger(context, "seconds")))
@@ -67,11 +67,11 @@ public class VoteCommand {
 
         String message;
 
-        if (website.equals("MinecraftServerList")) {
+        if (website.equals("Minecraft-MP")) {
             ModConfig.INSTANCE.lastVotedMinecraftMP = now;
             ModConfig.INSTANCE.customTimerMSL = 0;
             ModConfig.INSTANCE.notifiedMSL = false;
-            message = "Marked MinecraftServerList as voted. Counting down to next 2 AM server time.";
+            message = "Marked Minecraft-MP as voted. Counting down to next 2 AM server time.";
         } else if (website.equals("MinecraftBestServers")) {
             ModConfig.INSTANCE.lastVotedMBS = now;
             ModConfig.INSTANCE.customTimerMBS = 0;
@@ -94,7 +94,7 @@ public class VoteCommand {
     private static int setTimer(FabricClientCommandSource source, String website, int hours, int minutes, int seconds) {
         long targetTime = System.currentTimeMillis() + (hours * 60L * 60L * 1000L) + (minutes * 60L * 1000L) + (seconds * 1000L);
 
-        if (website.equals("MinecraftServerList")) {
+        if (website.equals("Minecraft-MP")) {
             ModConfig.INSTANCE.customTimerMSL = targetTime;
             ModConfig.INSTANCE.notifiedMSL = false;
         } else if (website.equals("MinecraftBestServers")) {

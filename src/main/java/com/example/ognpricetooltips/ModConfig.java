@@ -10,36 +10,53 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 public class ModConfig {
-    public enum VoteLocation {
-        TOP_LEFT,
-        TOP_RIGHT,
-        BOTTOM_LEFT,
-        BOTTOM_RIGHT
-    }
-
-    public boolean enablePriceTooltips = true;
-    public boolean enableInventoryValue = true;
-    public boolean enableShulkerTooltip = true;
-    public boolean enableRuneLevelVisualizer = true;
-    public boolean enableRuneTypeVisualizer = true;
-    public boolean enableVoteTracker = true;
-    
+    public boolean enablePriceTooltips = false;
+    public boolean enableInventoryValue = false;
+    public boolean enableShulkerTooltip = false;
+    public boolean enableItemNameCheck = false;
+    public boolean enableRuneLevelVisualizer = false;
+    public boolean enableRuneTypeVisualizer = false;
+    public boolean enableVoteTracker = false;
+    public boolean enableChatGamesTracker = false;
+    public boolean enableEnchantmentColorFix = false;
+    public boolean enableOverMaxIndicator = false;
+    public boolean enableHighLevelEnchantFix = false;
+    public boolean enableRomanToArabicFix = false;
+    public boolean enableCustomRuneBookTextures = false;
+    public boolean voteTrackerRightAligned = false;
+    public boolean chatGamesRightAligned = false;
+    public boolean chatGamesWaiting = false;
+    public long chatGamesNextTime = 0;
+    public boolean enableAnnouncementRemover = true;
+    public boolean enableChatMessageColorRemover = false;
+    public boolean enableChatNameColorRemover = false;
+    public boolean enableChatRankRemover = false;
+    public boolean enableChatTagRemover = false;
+    public boolean enableRealNameDisplay = false;
+    public boolean enableSeismicSlamTimer = true;
+    public int seismicSlamX = 5;
+    public int seismicSlamY = 70;
+    public boolean seismicSlamRightAligned = false;
     public String menuKey = "Y+U";
-
     public boolean hasSeenVoteTrackerMessage = false;
     public long lastVotedMinecraftMP = 0;
     public long lastVotedMBS = 0;
     public long lastVotedBlockAtlas = 0;
-
     public long customTimerMSL = 0;
     public long customTimerMBS = 0;
     public long customTimerBA = 0;
-
-    public boolean notifiedMSL = true;
-    public boolean notifiedMBS = true;
-    public boolean notifiedBA = true;
-
-    public VoteLocation voteTrackerLocation = VoteLocation.TOP_RIGHT;
+    public boolean notifiedMSL = false;
+    public boolean notifiedMBS = false;
+    public boolean notifiedBA = false;
+    public int voteTrackerX = 5;
+    public int voteTrackerY = 10;
+    public int chatGamesX = 5;
+    public int chatGamesY = 50;
+    public boolean chatMessageColorRemoverActive() { return enableChatMessageColorRemover; }
+    public boolean chatNameColorRemoverActive()    { return enableChatNameColorRemover; }
+    public boolean chatRankRemoverActive()         { return enableChatRankRemover; }
+    public boolean chatTagRemoverActive()          { return enableChatTagRemover; }
+    public boolean realNameDisplayActive()         { return enableRealNameDisplay; }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File CONFIG_FILE = new File(FabricLoader.getInstance().getConfigDir().toFile(), "ognpricetooltips.json");

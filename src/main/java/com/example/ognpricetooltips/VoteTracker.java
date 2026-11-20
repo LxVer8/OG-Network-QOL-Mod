@@ -17,6 +17,8 @@ import java.time.ZonedDateTime;
 
 public class VoteTracker implements ClientModInitializer {
 
+    public static final int WIDTH = 190;
+
     private static final ZoneId SERVER_TIMEZONE = ZoneId.of("America/Argentina/Buenos_Aires");
 
     @Override
@@ -48,90 +50,80 @@ public class VoteTracker implements ClientModInitializer {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player == null || client.options.hudHidden) return;
 
-            int screenWidth = context.getScaledWindowWidth();
-            int screenHeight = context.getScaledWindowHeight();
-            ModConfig.VoteLocation location = ModConfig.INSTANCE.voteTrackerLocation;
-
-            int startY = 10;
-            int startX = 5;
-
-            if (location == ModConfig.VoteLocation.BOTTOM_LEFT || location == ModConfig.VoteLocation.BOTTOM_RIGHT) {
-                startY = screenHeight - (12 * 3) - 10;
-            }
-
-            if (location == ModConfig.VoteLocation.TOP_RIGHT || location == ModConfig.VoteLocation.BOTTOM_RIGHT) {
-                startX = screenWidth - 5;
-            }
-
-            ZonedDateTime now = ZonedDateTime.now(SERVER_TIMEZONE);
-            long nowMillis = System.currentTimeMillis();
-
-            ZonedDateTime mostRecent2AM = now.withHour(2).withMinute(0).withSecond(0).withNano(0);
-            if (now.isBefore(mostRecent2AM)) mostRecent2AM = mostRecent2AM.minusDays(1);
-            long next2AMMillis = mostRecent2AM.plusDays(1).toInstant().toEpochMilli();
-            long lastReset2AM = mostRecent2AM.toInstant().toEpochMilli();
-
-            ZonedDateTime mostRecent9PM = now.withHour(21).withMinute(0).withSecond(0).withNano(0);
-            if (now.isBefore(mostRecent9PM)) mostRecent9PM = mostRecent9PM.minusDays(1);
-            long next9PMMillis = mostRecent9PM.plusDays(1).toInstant().toEpochMilli();
-            long lastReset9PM = mostRecent9PM.toInstant().toEpochMilli();
-
-            boolean mpReady;
-            long mpDiff;
-            if (ModConfig.INSTANCE.customTimerMSL > 0) {
-                mpDiff = Math.max(0, ModConfig.INSTANCE.customTimerMSL - nowMillis);
-                mpReady = mpDiff <= 0;
-            } else {
-                mpReady = ModConfig.INSTANCE.lastVotedMinecraftMP < lastReset2AM;
-                mpDiff = mpReady ? 0 : Math.max(0, next2AMMillis - nowMillis);
-            }
-
-            if (mpReady && !ModConfig.INSTANCE.notifiedMSL) {
-                sendClickableMessage(client, "MinecraftServerList", "https://minecraft-mp.com/server/282687/vote/");
-                ModConfig.INSTANCE.notifiedMSL = true;
-                ModConfig.INSTANCE.save();
-            }
-
-            boolean mbsReady;
-            long mbsDiff;
-            if (ModConfig.INSTANCE.customTimerMBS > 0) {
-                mbsDiff = Math.max(0, ModConfig.INSTANCE.customTimerMBS - nowMillis);
-                mbsReady = mbsDiff <= 0;
-            } else {
-                mbsReady = ModConfig.INSTANCE.lastVotedMBS < lastReset9PM;
-                mbsDiff = mbsReady ? 0 : Math.max(0, next9PMMillis - nowMillis);
-            }
-
-            if (mbsReady && !ModConfig.INSTANCE.notifiedMBS) {
-                sendClickableMessage(client, "MinecraftBestServers", "https://minecraftbestservers.com/server-og-network.313/vote");
-                ModConfig.INSTANCE.notifiedMBS = true;
-                ModConfig.INSTANCE.save();
-            }
-
-            boolean baReady;
-            long baDiff;
-            if (ModConfig.INSTANCE.customTimerBA > 0) {
-                baDiff = Math.max(0, ModConfig.INSTANCE.customTimerBA - nowMillis);
-                baReady = baDiff <= 0;
-            } else {
-                long nextBlockAtlasMillis = ModConfig.INSTANCE.lastVotedBlockAtlas + (24 * 60 * 60 * 1000);
-                baReady = ModConfig.INSTANCE.lastVotedBlockAtlas == 0 || nowMillis >= nextBlockAtlasMillis;
-                baDiff = baReady ? 0 : Math.max(0, nextBlockAtlasMillis - nowMillis);
-            }
-
-            if (baReady && !ModConfig.INSTANCE.notifiedBA) {
-                sendClickableMessage(client, "BlockAtlas", "https://blockatlas.net/server-OG-Network.12/vote");
-                ModConfig.INSTANCE.notifiedBA = true;
-                ModConfig.INSTANCE.save();
-            }
-
-            int y = startY;
-            drawText(context, client, buildText("MinecraftServerList", mpDiff, mpReady), startX, y, location);
-            y += 12;
-            drawText(context, client, buildText("MinecraftBestServers", mbsDiff, mbsReady), startX, y, location);
-            y += 12;
-            drawText(context, client, buildText("BlockAtlas", baDiff, baReady), startX, y, location);
+            render(context, client, ModConfig.INSTANCE.voteTrackerX, ModConfig.INSTANCE.voteTrackerY,
+                    ModConfig.INSTANCE.voteTrackerRightAligned);
         });
+    }
+
+    public static void render(DrawContext context, MinecraftClient client, int startX, int startY, boolean rightAligned) {
+        long nowMillis = System.currentTimeMillis();
+        ZonedDateTime now = ZonedDateTime.now(SERVER_TIMEZONE);
+
+        ZonedDateTime mostRecent2AM = now.withHour(2).withMinute(0).withSecond(0).withNano(0);
+        if (now.isBefore(mostRecent2AM)) mostRecent2AM = mostRecent2AM.minusDays(1);
+        long next2AMMillis = mostRecent2AM.plusDays(1).toInstant().toEpochMilli();
+        long lastReset2AM = mostRecent2AM.toInstant().toEpochMilli();
+
+        ZonedDateTime mostRecent9PM = now.withHour(21).withMinute(0).withSecond(0).withNano(0);
+        if (now.isBefore(mostRecent9PM)) mostRecent9PM = mostRecent9PM.minusDays(1);
+        long next9PMMillis = mostRecent9PM.plusDays(1).toInstant().toEpochMilli();
+        long lastReset9PM = mostRecent9PM.toInstant().toEpochMilli();
+
+        boolean mpReady;
+        long mpDiff;
+        if (ModConfig.INSTANCE.customTimerMSL > 0) {
+            mpDiff = Math.max(0, ModConfig.INSTANCE.customTimerMSL - nowMillis);
+            mpReady = mpDiff <= 0;
+        } else {
+            mpReady = ModConfig.INSTANCE.lastVotedMinecraftMP < lastReset2AM;
+            mpDiff = mpReady ? 0 : Math.max(0, next2AMMillis - nowMillis);
+        }
+
+        if (mpReady && !ModConfig.INSTANCE.notifiedMSL) {
+            sendClickableMessage(client, "Minecraft-MP", "https://minecraft-mp.com/server/282687/vote/");
+            ModConfig.INSTANCE.notifiedMSL = true;
+            ModConfig.INSTANCE.save();
+        }
+
+        boolean mbsReady;
+        long mbsDiff;
+        if (ModConfig.INSTANCE.customTimerMBS > 0) {
+            mbsDiff = Math.max(0, ModConfig.INSTANCE.customTimerMBS - nowMillis);
+            mbsReady = mbsDiff <= 0;
+        } else {
+            mbsReady = ModConfig.INSTANCE.lastVotedMBS < lastReset9PM;
+            mbsDiff = mbsReady ? 0 : Math.max(0, next9PMMillis - nowMillis);
+        }
+
+        if (mbsReady && !ModConfig.INSTANCE.notifiedMBS) {
+            sendClickableMessage(client, "MinecraftBestServers", "https://minecraftbestservers.com/server-og-network.313/vote");
+            ModConfig.INSTANCE.notifiedMBS = true;
+            ModConfig.INSTANCE.save();
+        }
+
+        boolean baReady;
+        long baDiff;
+        if (ModConfig.INSTANCE.customTimerBA > 0) {
+            baDiff = Math.max(0, ModConfig.INSTANCE.customTimerBA - nowMillis);
+            baReady = baDiff <= 0;
+        } else {
+            long nextBlockAtlasMillis = ModConfig.INSTANCE.lastVotedBlockAtlas + (24 * 60 * 60 * 1000);
+            baReady = ModConfig.INSTANCE.lastVotedBlockAtlas == 0 || nowMillis >= nextBlockAtlasMillis;
+            baDiff = baReady ? 0 : Math.max(0, nextBlockAtlasMillis - nowMillis);
+        }
+
+        if (baReady && !ModConfig.INSTANCE.notifiedBA) {
+            sendClickableMessage(client, "BlockAtlas", "https://blockatlas.net/server-OG-Network.12/vote");
+            ModConfig.INSTANCE.notifiedBA = true;
+            ModConfig.INSTANCE.save();
+        }
+
+        int y = startY;
+        drawText(context, client, buildText("Minecraft-MP", mpDiff, mpReady), startX, y, rightAligned);
+        y += 12;
+        drawText(context, client, buildText("MinecraftBestServers", mbsDiff, mbsReady), startX, y, rightAligned);
+        y += 12;
+        drawText(context, client, buildText("BlockAtlas", baDiff, baReady), startX, y, rightAligned);
     }
 
     static void handleChatMessage(Text message) {
@@ -146,7 +138,7 @@ public class VoteTracker implements ClientModInitializer {
         String lower = msg.toLowerCase(java.util.Locale.ROOT);
 
         if (lower.contains("minecraft-mp.com") || lower.contains("minecraft-mp ")) {
-            recordVoteFor("MinecraftServerList");
+            recordVoteFor("Minecraft-MP");
         } else if (lower.contains("minecraftbestservers") || lower.contains("minecraft best servers")) {
             recordVoteFor("MinecraftBestServers");
         } else if (lower.contains("blockatlas")) {
@@ -157,7 +149,7 @@ public class VoteTracker implements ClientModInitializer {
     private static void recordVoteFor(String site) {
         long now = System.currentTimeMillis();
         switch (site) {
-            case "MinecraftServerList" -> {
+            case "Minecraft-MP" -> {
                 ModConfig.INSTANCE.lastVotedMinecraftMP = now;
                 ModConfig.INSTANCE.customTimerMSL = 0;
                 ModConfig.INSTANCE.notifiedMSL = false;
@@ -204,25 +196,22 @@ public class VoteTracker implements ClientModInitializer {
         return hours + "h " + minutes + "m " + seconds + "s";
     }
 
-    private static void drawText(DrawContext context, MinecraftClient client, Text text, int x, int y, ModConfig.VoteLocation location) {
-        int drawX = x;
-        if (location == ModConfig.VoteLocation.TOP_RIGHT || location == ModConfig.VoteLocation.BOTTOM_RIGHT) {
-            drawX = x - client.textRenderer.getWidth(text);
-        }
+    private static void drawText(DrawContext context, MinecraftClient client, Text text, int boxX, int y, boolean rightAligned) {
+        int x = rightAligned ? boxX + WIDTH - client.textRenderer.getWidth(text) : boxX;
 
         Text outlineText = Text.literal(text.getString()).formatted(Formatting.BLACK);
 
-        context.drawText(client.textRenderer, outlineText, drawX - 1, y - 1, 0xFFFFFFFF, false);
-        context.drawText(client.textRenderer, outlineText, drawX, y - 1, 0xFFFFFFFF, false);
-        context.drawText(client.textRenderer, outlineText, drawX + 1, y - 1, 0xFFFFFFFF, false);
-        
-        context.drawText(client.textRenderer, outlineText, drawX - 1, y, 0xFFFFFFFF, false);
-        context.drawText(client.textRenderer, outlineText, drawX + 1, y, 0xFFFFFFFF, false);
-        
-        context.drawText(client.textRenderer, outlineText, drawX - 1, y + 1, 0xFFFFFFFF, false);
-        context.drawText(client.textRenderer, outlineText, drawX, y + 1, 0xFFFFFFFF, false);
-        context.drawText(client.textRenderer, outlineText, drawX + 1, y + 1, 0xFFFFFFFF, false);
+        context.drawText(client.textRenderer, outlineText, x - 1, y - 1, 0xFFFFFFFF, false);
+        context.drawText(client.textRenderer, outlineText, x, y - 1, 0xFFFFFFFF, false);
+        context.drawText(client.textRenderer, outlineText, x + 1, y - 1, 0xFFFFFFFF, false);
 
-        context.drawTextWithShadow(client.textRenderer, text, drawX, y, 0xFFFFFFFF);
+        context.drawText(client.textRenderer, outlineText, x - 1, y, 0xFFFFFFFF, false);
+        context.drawText(client.textRenderer, outlineText, x + 1, y, 0xFFFFFFFF, false);
+
+        context.drawText(client.textRenderer, outlineText, x - 1, y + 1, 0xFFFFFFFF, false);
+        context.drawText(client.textRenderer, outlineText, x, y + 1, 0xFFFFFFFF, false);
+        context.drawText(client.textRenderer, outlineText, x + 1, y + 1, 0xFFFFFFFF, false);
+
+        context.drawTextWithShadow(client.textRenderer, text, x, y, 0xFFFFFFFF);
     }
 }

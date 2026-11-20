@@ -9,6 +9,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.client.MinecraftClient;
 
 public class ShulkerBoxValueTooltip implements ClientModInitializer {
 
@@ -25,7 +26,7 @@ public class ShulkerBoxValueTooltip implements ClientModInitializer {
                     
                     for (ItemStack invStack : container.stream().toList()) {
                         if (invStack.isEmpty()) continue;
-                        totalValue += PriceTooltipsClient.getSellPrice(invStack) * invStack.getCount();
+                        totalValue += PriceTooltipsClient.getSellPrice(invStack, MinecraftClient.getInstance()) * invStack.getCount();
                     }
 
                     if (totalValue > 0) {

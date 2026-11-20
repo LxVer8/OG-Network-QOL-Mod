@@ -3,6 +3,7 @@ package com.example.ognpricetooltips;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.block.ShulkerBoxBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.InputUtil;
@@ -32,10 +33,37 @@ import java.util.Map;
 public class PriceTooltipsClient implements ClientModInitializer {
 
     private static boolean wasMenuKeyPressed = false;
+    
+    private static final Map<Item, Double> hypotheticalPriceCache = new HashMap<>();
+
+    private static final Map<Item, Item> UNCRAFT_MAP = new HashMap<>();
+    private static final Map<Item, Item> SMELT_MAP = new HashMap<>();
+
+    static {
+        UNCRAFT_MAP.put(Items.DIAMOND_BLOCK, Items.DIAMOND);
+        UNCRAFT_MAP.put(Items.IRON_BLOCK, Items.IRON_INGOT);
+        UNCRAFT_MAP.put(Items.GOLD_BLOCK, Items.GOLD_INGOT);
+        UNCRAFT_MAP.put(Items.EMERALD_BLOCK, Items.EMERALD);
+        UNCRAFT_MAP.put(Items.LAPIS_BLOCK, Items.LAPIS_LAZULI);
+        UNCRAFT_MAP.put(Items.REDSTONE_BLOCK, Items.REDSTONE);
+        UNCRAFT_MAP.put(Items.COAL_BLOCK, Items.COAL);
+        UNCRAFT_MAP.put(Items.COPPER_BLOCK, Items.COPPER_INGOT);
+        UNCRAFT_MAP.put(Items.NETHERITE_BLOCK, Items.NETHERITE_INGOT);
+
+        SMELT_MAP.put(Items.RAW_IRON, Items.IRON_INGOT);
+        SMELT_MAP.put(Items.RAW_GOLD, Items.GOLD_INGOT);
+        SMELT_MAP.put(Items.RAW_COPPER, Items.COPPER_INGOT);
+    }
 
     @Override
     public void onInitializeClient() {
         PriceRegistry.init();
+        ChatModifier.init();
+        KeybindHandler.init();
+
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            hypotheticalPriceCache.clear();
+        });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.currentScreen != null) return;
@@ -62,6 +90,27 @@ public class PriceTooltipsClient implements ClientModInitializer {
 
         ItemTooltipCallback.EVENT.register((stack, tooltipContext, tooltipType, lines) -> {
             if (!ModConfig.INSTANCE.enablePriceTooltips) return; 
+
+            if (!hasValidName(stack)) return;
+            
+            MinecraftClient client = MinecraftClient.getInstance();
+            
+            if (client.currentScreen instanceof HandledScreen<?> screen) {
+                if (isRestricted(screen, client)) {
+                    boolean isPlayerInventory = false;
+                    for (Slot slot : screen.getScreenHandler().slots) {
+                        if (slot.getStack() == stack) {
+                            if (slot.inventory instanceof PlayerInventory) {
+                                isPlayerInventory = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (!isPlayerInventory) {
+                        return;
+                    }
+                }
+            }
             
             Item item = stack.getItem();
             
@@ -81,11 +130,45 @@ public class PriceTooltipsClient implements ClientModInitializer {
                 }
             }
 
-            if (PriceRegistry.ITEM_PRICES.containsKey(item)) {
+            boolean hasDirectPrice = PriceRegistry.ITEM_PRICES.containsKey(item);
+            double directSellPrice = 0;
+            
+            if (hasDirectPrice) {
+                directSellPrice = PriceRegistry.ITEM_PRICES.get(item).sellPrice();
+            }
+
+            if (hasDirectPrice && directSellPrice > 0) {
                 PriceRegistry.PriceData prices = PriceRegistry.ITEM_PRICES.get(item);
                 addPriceLore(lines, prices, stack.getCount());
             } else {
-                lines.add(Text.literal("Cannot be bought or sold").formatted(Formatting.GRAY));
+                double hypPrice = getHypotheticalPrice(stack, client);
+                if (hypPrice > 0) {
+                    if (hasDirectPrice && PriceRegistry.ITEM_PRICES.get(item).buyPrice() > 0) {
+                        lines.add(Text.literal("Buy: " + formatPrice(PriceRegistry.ITEM_PRICES.get(item).buyPrice())).formatted(Formatting.GREEN));
+                    } else {
+                        lines.add(Text.literal("Cannot be bought").formatted(Formatting.GRAY));
+                    }
+
+                    double totalHypPrice = hypPrice * stack.getCount();
+                    lines.add(Text.literal("*Sell: " + formatPrice(hypPrice) + " (" + formatPrice(totalHypPrice) + ")").formatted(Formatting.GOLD));
+                    
+                    if (InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_LEFT_SHIFT) || InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT)) {
+                        if (UNCRAFT_MAP.containsKey(item)) {
+                            String baseName = new ItemStack(UNCRAFT_MAP.get(item)).getName().getString();
+                            lines.add(Text.literal("Uncraft into " + baseName + "s").formatted(Formatting.DARK_GRAY));
+                        } else if (SMELT_MAP.containsKey(item)) {
+                            String smeltName = new ItemStack(SMELT_MAP.get(item)).getName().getString();
+                            lines.add(Text.literal("Smelt into " + smeltName + "s").formatted(Formatting.DARK_GRAY));
+                        }
+                    }
+                    
+                } else {
+                    if (hasDirectPrice) {
+                        addPriceLore(lines, PriceRegistry.ITEM_PRICES.get(item), stack.getCount());
+                    } else {
+                        lines.add(Text.literal("Cannot be bought or sold").formatted(Formatting.GRAY));
+                    }
+                }
             }
         });
     }
@@ -102,9 +185,43 @@ public class PriceTooltipsClient implements ClientModInitializer {
         return -1;
     }
 
+    private static boolean isRestricted(HandledScreen<?> screen, MinecraftClient client) {
+        if (client.player == null) return true;
+        Text title = screen.getTitle();
+        if (title.getStyle().getColor() != null && title.getStyle().getColor().getRgb() == 0x000000) {
+            return true;
+        }
+        return false;
+    }
+
+    private static double getHypotheticalPrice(ItemStack stack, MinecraftClient client) {
+        Item item = stack.getItem();
+        
+        if (hypotheticalPriceCache.containsKey(item)) {
+            return hypotheticalPriceCache.get(item);
+        }
+
+        double price = 0;
+
+        if (UNCRAFT_MAP.containsKey(item)) {
+            Item baseItem = UNCRAFT_MAP.get(item);
+            price = getSellPrice(new ItemStack(baseItem), client) * 9;
+        }
+
+        if (price == 0 && SMELT_MAP.containsKey(item)) {
+            Item smeltedItem = SMELT_MAP.get(item);
+            price = getSellPrice(new ItemStack(smeltedItem), client);
+        }
+
+        hypotheticalPriceCache.put(item, price);
+        return price;
+    }
+
     public static void renderInventoryValues(DrawContext context, HandledScreen<?> screen, MinecraftClient client, int mouseX, int mouseY) {
         if (!ModConfig.INSTANCE.enableInventoryValue) return; 
         if (client.player == null) return;
+        
+        boolean restricted = isRestricted(screen, client);
 
         double playerValue = 0;
         double containerValue = 0;
@@ -116,7 +233,7 @@ public class PriceTooltipsClient implements ClientModInitializer {
             ItemStack stack = slot.getStack();
             if (stack.isEmpty()) continue;
 
-            double value = calculateTotalValue(stack);
+            double value = calculateTotalValue(stack, client);
 
             if (slot.inventory instanceof PlayerInventory) {
                 playerValue += value;
@@ -127,14 +244,12 @@ public class PriceTooltipsClient implements ClientModInitializer {
             }
         }
 
-        String playerText = formatValue(playerValue);
-        String containerText = formatValue(containerValue);
-
         int screenX = screen.x;
         int screenY = screen.y;
         int width = screen.backgroundWidth;
         int height = screen.backgroundHeight;
 
+        String playerText = formatValue(playerValue);
         int playerTextWidth = client.textRenderer.getWidth(playerText);
         int playerTextX = screenX + (width / 2) - (playerTextWidth / 2);
         int playerTextY = screenY + height + 4; 
@@ -146,7 +261,8 @@ public class PriceTooltipsClient implements ClientModInitializer {
             context.drawTooltip(client.textRenderer, tooltip, mouseX, mouseY);
         }
 
-        if (!(screen instanceof InventoryScreen)) {
+        if (!(screen instanceof InventoryScreen) && !restricted) {
+            String containerText = formatValue(containerValue);
             int containerTextWidth = client.textRenderer.getWidth(containerText);
             int containerTextX = screenX + (width / 2) - (containerTextWidth / 2);
             int containerTextY = screenY - 12; 
@@ -174,14 +290,14 @@ public class PriceTooltipsClient implements ClientModInitializer {
         list.add(stack);
     }
 
-    private static double calculateTotalValue(ItemStack stack) {
-        double value = getSellPrice(stack) * stack.getCount();
+    private static double calculateTotalValue(ItemStack stack, MinecraftClient client) {
+        double value = getSellPrice(stack, client) * stack.getCount();
         if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ShulkerBoxBlock) {
             ContainerComponent container = stack.get(DataComponentTypes.CONTAINER);
             if (container != null) {
                 for (ItemStack invStack : container.stream().toList()) {
                     if (!invStack.isEmpty()) {
-                        value += calculateTotalValue(invStack);
+                        value += calculateTotalValue(invStack, client);
                     }
                 }
             }
@@ -195,7 +311,7 @@ public class PriceTooltipsClient implements ClientModInitializer {
         Map<String, ItemGroup> groups = new HashMap<>();
 
         for (ItemStack stack : items) {
-            double value = getSellPrice(stack) * stack.getCount();
+            double value = getSellPrice(stack, client) * stack.getCount();
             if (value <= 0) continue;
 
             String name = stack.getName().getString();
@@ -220,7 +336,7 @@ public class PriceTooltipsClient implements ClientModInitializer {
             
             Text name = group.stack().getName().copy().formatted(Formatting.YELLOW);
             Text amount = Text.literal(" (x" + group.count() + ") = ").formatted(Formatting.GRAY);
-            Text price = Text.literal("$" + formatPrice(group.value())).formatted(Formatting.GREEN);
+            Text price = Text.literal(formatPrice(group.value())).formatted(Formatting.GREEN);
             
             tooltip.add(Text.literal("- ").append(name).append(amount).append(price));
             count++;
@@ -233,7 +349,28 @@ public class PriceTooltipsClient implements ClientModInitializer {
         return tooltip;
     }
 
-    public static double getSellPrice(ItemStack stack) {
+    public static boolean hasValidName(ItemStack stack) {
+        if (!ModConfig.INSTANCE.enableItemNameCheck) return true;
+
+        Item item = stack.getItem();
+
+        if (item == Items.POTION || item == Items.SPLASH_POTION || item == Items.LINGERING_POTION || item == Items.TIPPED_ARROW) {
+            Text customName = stack.get(DataComponentTypes.CUSTOM_NAME);
+            if (customName == null) return true;
+
+            ItemStack unnamed = stack.copy();
+            unnamed.remove(DataComponentTypes.CUSTOM_NAME);
+            return customName.getString().trim().equals(unnamed.getName().getString().trim());
+        }
+
+        String displayed = stack.getName().getString().trim();
+        String expected = item.getName().getString().trim();
+        return displayed.equals(expected);
+    }
+
+    public static double getSellPrice(ItemStack stack, MinecraftClient client) {
+        if (!hasValidName(stack)) return 0;
+
         Item item = stack.getItem();
         if (item == Items.POTION || item == Items.SPLASH_POTION || item == Items.LINGERING_POTION || item == Items.TIPPED_ARROW) {
             PotionContentsComponent contents = stack.get(DataComponentTypes.POTION_CONTENTS);
@@ -247,9 +384,13 @@ public class PriceTooltipsClient implements ClientModInitializer {
         }
 
         if (PriceRegistry.ITEM_PRICES.containsKey(item)) {
-            return PriceRegistry.ITEM_PRICES.get(item).sellPrice();
+            double sellPrice = PriceRegistry.ITEM_PRICES.get(item).sellPrice();
+            if (sellPrice > 0) {
+                return sellPrice;
+            }
         }
-        return 0;
+        
+        return getHypotheticalPrice(stack, client);
     }
 
     public static String formatValue(double value) {
@@ -273,9 +414,9 @@ public class PriceTooltipsClient implements ClientModInitializer {
 
     private static String formatPrice(double price) {
         if (price == (long) price) {
-            return String.format("%,d", (long) price);
+            return String.format("$%,d", (long) price);
         } else {
-            return String.format("%,.2f", price);
+            return String.format("$%,.2f", price);
         }
     }
 }
