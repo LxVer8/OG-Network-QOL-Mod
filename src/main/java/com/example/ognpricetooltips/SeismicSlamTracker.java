@@ -132,11 +132,12 @@ public class SeismicSlamTracker implements ClientModInitializer {
         if (!primed && !readyIn) return;
 
         long now = System.currentTimeMillis();
-        boolean fresh = now - lastSeen > REPEAT_GAP_MS;
-        lastSeen = now;
-        if (!fresh) return;
 
         if (readyIn && !primed && endTime > now) return;
+
+        if (now - lastSeen <= REPEAT_GAP_MS) return;
+
+        lastSeen = now;
 
         int level = -1;
         try {
