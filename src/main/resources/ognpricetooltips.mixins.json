@@ -3,8 +3,10 @@
   "minVersion": "0.8",
   "package": "com.example.ognpricetooltips.mixin",
   "compatibilityLevel": "JAVA_21",
+  "refmap": "ognpricetooltips-refmap.json",
   "client": [
-    "HandledScreenMixin"
+    "HandledScreenMixin",
+    "ScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

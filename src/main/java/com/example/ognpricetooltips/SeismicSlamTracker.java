@@ -21,11 +21,9 @@ import net.minecraft.util.Formatting;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,10 +38,6 @@ public class SeismicSlamTracker implements ClientModInitializer {
     private static final long HOLD_MS = 4000;
     private static final long FADE_MS = 2000;
 
-    private static boolean DEBUG = true;
-    private static final int DEBUG_MAX_LINES = 60;
-    private static final Set<String> debugSeen = new HashSet<>();
-
     private static final Pattern LEVEL_PATTERN = Pattern.compile(
             "seismic slam\\s*:?\\s*(?:enchantment\\.level\\.(\\d+)|(\\d+)|([ivxlc]+)(?![a-z]))",
             Pattern.CASE_INSENSITIVE);
@@ -57,7 +51,7 @@ public class SeismicSlamTracker implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        ClientReceiveMessageEvents.GAME.register((message, overlay) -> handleMessage(message, overlay, "event"));
+        ClientReceiveMessageEvents.GAME.register((message, overlay) -> handleMessage(message));
 
         ClientTickEvents.END_CLIENT_TICK.register(SeismicSlamTracker::pollHud);
 
@@ -90,7 +84,6 @@ public class SeismicSlamTracker implements ClientModInitializer {
                 for (int i = 0; i < hudTextFields.length; i++) {
                     hudLastTexts[i] = hudTextFields[i].get(hud);
                 }
-                if (DEBUG) System.out.println("[SeismicSlamTracker] watching " + hudTextFields.length + " HUD text fields");
                 return;
             }
 
@@ -98,32 +91,18 @@ public class SeismicSlamTracker implements ClientModInitializer {
                 Object value = hudTextFields[i].get(hud);
                 if (value != hudLastTexts[i]) {
                     hudLastTexts[i] = value;
-                    if (value instanceof Text text) handleMessage(text, true, "hud:" + hudTextFields[i].getName());
+                    if (value instanceof Text text) handleMessage(text);
                 }
             }
         } catch (Exception e) {
-            if (DEBUG) e.printStackTrace();
             hudTextFields = new Field[0];
             hudLastTexts = new Object[0];
         }
     }
 
-    private static String escape(String s) {
-        StringBuilder sb = new StringBuilder();
-        for (char c : s.toCharArray()) {
-            if (c >= 32 && c < 127) sb.append(c);
-            else sb.append(String.format("\\u%04X", (int) c));
-        }
-        return sb.toString();
-    }
-
-    private static void handleMessage(Text message, boolean overlay, String source) {
+    private static void handleMessage(Text message) {
         String raw = message.getString();
         String letters = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
-
-        if (DEBUG && debugSeen.size() < DEBUG_MAX_LINES && debugSeen.add(source + "|" + raw)) {
-            System.out.println("[SeismicSlamTracker] text (" + source + ", overlay=" + overlay + "): \"" + escape(raw) + "\"");
-        }
 
         if (!ModConfig.INSTANCE.enableSeismicSlamTimer) return;
 
@@ -142,16 +121,11 @@ public class SeismicSlamTracker implements ClientModInitializer {
         int level = -1;
         try {
             level = findSeismicSlamLevel(MinecraftClient.getInstance());
-        } catch (Exception e) {
-            if (DEBUG) e.printStackTrace();
+        } catch (Exception ignored) {
         }
 
         long duration = level > 0 ? durationForLevel(level) : DEFAULT_DURATION_MS;
         endTime = now + duration;
-
-        if (DEBUG) {
-            System.out.println("[SeismicSlamTracker] TRIGGERED via " + source + ": level=" + level + " duration=" + duration + "ms");
-        }
     }
 
     private static long durationForLevel(int level) {

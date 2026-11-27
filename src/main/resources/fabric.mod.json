@@ -20,8 +20,11 @@
 			"com.example.ognpricetooltips.VoteTracker",
 			"com.example.ognpricetooltips.EnchantmentColorFix",
 			"com.example.ognpricetooltips.ChatGamesTracker",
-  			"com.example.ognpricetooltips.AnnouncementFilter",
-			"com.example.ognpricetooltips.SeismicSlamTracker"
+			"com.example.ognpricetooltips.AnnouncementFilter",
+			"com.example.ognpricetooltips.SeismicSlamTracker",
+			"com.example.ognpricetooltips.OakHavenFlightTracker",
+			"com.example.ognpricetooltips.OakHavenQuestTracker",
+			"com.example.ognpricetooltips.DailyQuestTracker"
 		],
 		"modmenu": [
 			"com.example.ognpricetooltips.ModMenuIntegration"

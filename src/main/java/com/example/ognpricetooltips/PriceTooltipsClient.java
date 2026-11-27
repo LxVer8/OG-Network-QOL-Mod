@@ -89,29 +89,21 @@ public class PriceTooltipsClient implements ClientModInitializer {
         });
 
         ItemTooltipCallback.EVENT.register((stack, tooltipContext, tooltipType, lines) -> {
-            if (!ModConfig.INSTANCE.enablePriceTooltips) return; 
-
-            if (!hasValidName(stack)) return;
-            
             MinecraftClient client = MinecraftClient.getInstance();
-            
-            if (client.currentScreen instanceof HandledScreen<?> screen) {
-                if (isRestricted(screen, client)) {
-                    boolean isPlayerInventory = false;
-                    for (Slot slot : screen.getScreenHandler().slots) {
-                        if (slot.getStack() == stack) {
-                            if (slot.inventory instanceof PlayerInventory) {
-                                isPlayerInventory = true;
-                            }
-                            break;
-                        }
-                    }
-                    if (!isPlayerInventory) {
-                        return;
-                    }
+
+            if (ModConfig.INSTANCE.enableOakHavenPrices) {
+                double starPrice = OakHavenPrices.getSellPrice(stack);
+                if (starPrice > 0) {
+                    double totalStarPrice = starPrice * stack.getCount();
+                    lines.add(Text.literal("Sell: " + OakHavenPrices.formatPrice(starPrice) + " (" + OakHavenPrices.formatPrice(totalStarPrice) + ")").formatted(Formatting.DARK_GREEN));
+                    return;
                 }
             }
-            
+
+            if (!ModConfig.INSTANCE.enablePriceTooltips) return;
+
+            if (!hasValidName(stack)) return;
+
             Item item = stack.getItem();
             
             if (item == Items.POTION || item == Items.SPLASH_POTION || item == Items.LINGERING_POTION || item == Items.TIPPED_ARROW) {
@@ -185,16 +177,9 @@ public class PriceTooltipsClient implements ClientModInitializer {
         return -1;
     }
 
-    private static boolean isRestricted(HandledScreen<?> screen, MinecraftClient client) {
-        if (client.player == null) return true;
-        Text title = screen.getTitle();
-        if (title.getStyle().getColor() != null && title.getStyle().getColor().getRgb() == 0x000000) {
-            return true;
-        }
-        return false;
-    }
-
     private static double getHypotheticalPrice(ItemStack stack, MinecraftClient client) {
+        if (!ModConfig.INSTANCE.enableTheoreticalSellPrice) return 0;
+
         Item item = stack.getItem();
         
         if (hypotheticalPriceCache.containsKey(item)) {
@@ -218,13 +203,15 @@ public class PriceTooltipsClient implements ClientModInitializer {
     }
 
     public static void renderInventoryValues(DrawContext context, HandledScreen<?> screen, MinecraftClient client, int mouseX, int mouseY) {
-        if (!ModConfig.INSTANCE.enableInventoryValue) return; 
+        boolean vanillaEnabled = ModConfig.INSTANCE.enableInventoryValue;
+        boolean oakEnabled = ModConfig.INSTANCE.enableOakHavenInventoryValue;
+        if (!vanillaEnabled && !oakEnabled) return;
         if (client.player == null) return;
         
-        boolean restricted = isRestricted(screen, client);
-
         double playerValue = 0;
         double containerValue = 0;
+        double playerStarValue = 0;
+        double containerStarValue = 0;
         
         List<ItemStack> playerItems = new ArrayList<>();
         List<ItemStack> containerItems = new ArrayList<>();
@@ -233,13 +220,16 @@ public class PriceTooltipsClient implements ClientModInitializer {
             ItemStack stack = slot.getStack();
             if (stack.isEmpty()) continue;
 
-            double value = calculateTotalValue(stack, client);
+            double value = vanillaEnabled ? calculateTotalValue(stack, client) : 0;
+            double starValue = oakEnabled ? calculateStarValue(stack) : 0;
 
             if (slot.inventory instanceof PlayerInventory) {
                 playerValue += value;
+                playerStarValue += starValue;
                 flattenInventory(playerItems, stack);
             } else {
                 containerValue += value;
+                containerStarValue += starValue;
                 flattenInventory(containerItems, stack);
             }
         }
@@ -249,31 +239,57 @@ public class PriceTooltipsClient implements ClientModInitializer {
         int width = screen.backgroundWidth;
         int height = screen.backgroundHeight;
 
-        String playerText = formatValue(playerValue);
-        int playerTextWidth = client.textRenderer.getWidth(playerText);
-        int playerTextX = screenX + (width / 2) - (playerTextWidth / 2);
-        int playerTextY = screenY + height + 4; 
+        drawValueTotals(context, client, mouseX, mouseY, screenX, width, screenY + height + 4,
+                playerValue, playerStarValue, playerItems, Formatting.YELLOW, 0xFFFFFF00);
 
-        context.drawTextWithShadow(client.textRenderer, Text.literal(playerText).formatted(Formatting.GREEN), playerTextX, playerTextY, 0xFF00FF00);
+        if (!(screen instanceof InventoryScreen)) {
+            drawValueTotals(context, client, mouseX, mouseY, screenX, width, screenY - 12,
+                    containerValue, containerStarValue, containerItems, Formatting.YELLOW, 0xFFFFFF00);
+        }
+    }
 
-        if (mouseX >= playerTextX && mouseX <= playerTextX + playerTextWidth && mouseY >= playerTextY && mouseY <= playerTextY + 9) {
-            List<Text> tooltip = getMostExpensiveItems(playerItems, client);
-            context.drawTooltip(client.textRenderer, tooltip, mouseX, mouseY);
+    private static void drawValueTotals(DrawContext context, MinecraftClient client, int mouseX, int mouseY,
+                                        int screenX, int width, int textY,
+                                        double value, double starValue, List<ItemStack> items,
+                                        Formatting vanillaFormat, int vanillaColor) {
+        boolean hasStars = starValue > 0;
+        boolean hasVanilla = value > 0;
+
+        String vanillaText = formatValue(value);
+        String starText = OakHavenPrices.formatPrice(starValue);
+        int vanillaWidth = client.textRenderer.getWidth(vanillaText);
+        int starWidth = client.textRenderer.getWidth(starText);
+
+        int vanillaX = screenX + (width / 2) - (vanillaWidth / 2);
+        int starX = screenX + (width / 2) - (starWidth / 2);
+
+        if (hasVanilla && hasStars) {
+            int gap = (width - vanillaWidth - starWidth) / 3;
+            vanillaX = screenX + gap;
+            starX = vanillaX + vanillaWidth + gap;
         }
 
-        if (!(screen instanceof InventoryScreen) && !restricted) {
-            String containerText = formatValue(containerValue);
-            int containerTextWidth = client.textRenderer.getWidth(containerText);
-            int containerTextX = screenX + (width / 2) - (containerTextWidth / 2);
-            int containerTextY = screenY - 12; 
+        if (hasVanilla) {
+            context.drawTextWithShadow(client.textRenderer, Text.literal(vanillaText).formatted(vanillaFormat), vanillaX, textY, vanillaColor);
 
-            context.drawTextWithShadow(client.textRenderer, Text.literal(containerText).formatted(Formatting.YELLOW), containerTextX, containerTextY, 0xFFFFFF00);
-
-            if (mouseX >= containerTextX && mouseX <= containerTextX + containerTextWidth && mouseY >= containerTextY && mouseY <= containerTextY + 9) {
-                List<Text> tooltip = getMostExpensiveItems(containerItems, client);
+            if (mouseX >= vanillaX && mouseX <= vanillaX + vanillaWidth && mouseY >= textY && mouseY <= textY + 9) {
+                List<Text> tooltip = getMostExpensiveItems(items, client, false);
                 context.drawTooltip(client.textRenderer, tooltip, mouseX, mouseY);
             }
         }
+
+        if (hasStars) {
+            context.drawTextWithShadow(client.textRenderer, Text.literal(starText).formatted(Formatting.DARK_GREEN), starX, textY, 0xFF00AA00);
+
+            if (mouseX >= starX && mouseX <= starX + starWidth && mouseY >= textY && mouseY <= textY + 9) {
+                List<Text> tooltip = getMostExpensiveItems(items, client, true);
+                context.drawTooltip(client.textRenderer, tooltip, mouseX, mouseY);
+            }
+        }
+    }
+
+    private static boolean isOakHavenItem(ItemStack stack) {
+        return ModConfig.INSTANCE.enableOakHavenInventoryValue && OakHavenPrices.getSellPrice(stack) > 0;
     }
 
     private static void flattenInventory(List<ItemStack> list, ItemStack stack) {
@@ -291,7 +307,7 @@ public class PriceTooltipsClient implements ClientModInitializer {
     }
 
     private static double calculateTotalValue(ItemStack stack, MinecraftClient client) {
-        double value = getSellPrice(stack, client) * stack.getCount();
+        double value = isOakHavenItem(stack) ? 0 : getSellPrice(stack, client) * stack.getCount();
         if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ShulkerBoxBlock) {
             ContainerComponent container = stack.get(DataComponentTypes.CONTAINER);
             if (container != null) {
@@ -305,13 +321,33 @@ public class PriceTooltipsClient implements ClientModInitializer {
         return value;
     }
 
-    private static List<Text> getMostExpensiveItems(List<ItemStack> items, MinecraftClient client) {
+    private static double calculateStarValue(ItemStack stack) {
+        double value = OakHavenPrices.getSellPrice(stack) * stack.getCount();
+        if (stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof ShulkerBoxBlock) {
+            ContainerComponent container = stack.get(DataComponentTypes.CONTAINER);
+            if (container != null) {
+                for (ItemStack invStack : container.stream().toList()) {
+                    if (!invStack.isEmpty()) {
+                        value += calculateStarValue(invStack);
+                    }
+                }
+            }
+        }
+        return value;
+    }
+
+    private static List<Text> getMostExpensiveItems(List<ItemStack> items, MinecraftClient client, boolean stars) {
         record ItemGroup(ItemStack stack, int count, double value) {}
         
         Map<String, ItemGroup> groups = new HashMap<>();
 
         for (ItemStack stack : items) {
-            double value = getSellPrice(stack, client) * stack.getCount();
+            double value;
+            if (stars) {
+                value = OakHavenPrices.getSellPrice(stack) * stack.getCount();
+            } else {
+                value = isOakHavenItem(stack) ? 0 : getSellPrice(stack, client) * stack.getCount();
+            }
             if (value <= 0) continue;
 
             String name = stack.getName().getString();
@@ -336,7 +372,9 @@ public class PriceTooltipsClient implements ClientModInitializer {
             
             Text name = group.stack().getName().copy().formatted(Formatting.YELLOW);
             Text amount = Text.literal(" (x" + group.count() + ") = ").formatted(Formatting.GRAY);
-            Text price = Text.literal(formatPrice(group.value())).formatted(Formatting.GREEN);
+            Text price = stars
+                    ? Text.literal(OakHavenPrices.formatPrice(group.value())).formatted(Formatting.DARK_GREEN)
+                    : Text.literal(formatPrice(group.value())).formatted(Formatting.GREEN);
             
             tooltip.add(Text.literal("- ").append(name).append(amount).append(price));
             count++;

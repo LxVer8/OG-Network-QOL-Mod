@@ -10,7 +10,6 @@ import org.lwjgl.glfw.GLFW;
 public class KeybindHandler {
     public static KeyBinding openHudEditorKey;
 
-    // Category is created once and reused
     private static final KeyBinding.Category CATEGORY =
             KeyBinding.Category.create(Identifier.of("ognpricetooltips", "main"));
 

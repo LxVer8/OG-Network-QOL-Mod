@@ -17,8 +17,6 @@ public class ChatGamesTracker implements ClientModInitializer {
 
     public static final int WIDTH = 150;
 
-    private static boolean DEBUG = false;
-
     private static final long TIMER_MS = 6 * 60 * 1000 + 1000;
 
     private static final long SPLIT_GAP_MS = 3000;
@@ -98,10 +96,6 @@ public class ChatGamesTracker implements ClientModInitializer {
         }
 
         if (!ModConfig.INSTANCE.enableChatGamesTracker) return;
-
-        if (DEBUG && lower.contains("chatgames")) {
-            System.out.println("[ChatGamesTracker] received: " + message.getString());
-        }
 
         if (isHeader(lower)) {
             setWaiting();

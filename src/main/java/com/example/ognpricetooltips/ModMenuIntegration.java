@@ -50,7 +50,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 .setDefaultValue("Y+U")
                 .setSaveConsumer(newValue -> config.menuKey = newValue)
                 .setTooltip(
-                    wrap("The keys used to open this menu. Use + for combinations (for example, Y+U). Type NONE to disable the keybind entirely.")
+                    wrap("The keys used to open this menu. Use + for combinations (for example, Y+U). Type 'NONE' to disable the keybind.")
                 )
                 .build());
 
@@ -69,21 +69,37 @@ public class ModMenuIntegration implements ModMenuApi {
         SubCategoryBuilder prices = eb.startSubCategory(Text.literal("Prices & Values"))
                 .setExpanded(false);
 
-        prices.add(toggle(eb, "Enable Price Tooltips", config.enablePriceTooltips, false,
-                "Shows the 'buy' and 'sell' prices at the bottom of the tooltip. This applies only to items available on /shop, and items that you can sell in /sell. Also shows the total value of the stack for that item.",
+        prices.add(toggle(eb, "Enable Vanilla Price Tooltips", config.enablePriceTooltips, false,
+                "Shows the 'buy' and 'sell' prices at the bottom of the tooltip for items available on /shop, and items that you can sell in /sell.",
                 v -> config.enablePriceTooltips = v));
 
-        prices.add(toggle(eb, "Enable Inventory Value", config.enableInventoryValue, false,
-                "Displays the total 'sell' value of all items in your inventory and open container. This applies only to items available on /shop, and items that you can sell in /sell. You can hover over the numbers to see a list of the most expensive items from that inventory.",
+        prices.add(toggle(eb, "Enable OakHaven Price Tooltips", config.enableOakHavenPrices, false,
+                "Shows the 'sell' price at the bottom of the tooltip for items from OakHaven.",
+                v -> config.enableOakHavenPrices = v));
+
+        prices.add(toggle(eb, "Enable Vanilla Inventory Value", config.enableInventoryValue, false,
+                "Displays the total 'sell' value of all vanilla items in your inventory and open container. This applies only to items available on /shop, and items that you can sell in /sell. You can hover over the numbers to see a list of the most expensive items from that inventory.",
                 v -> config.enableInventoryValue = v));
 
-        prices.add(toggle(eb, "Enable Shulker Box Value", config.enableShulkerTooltip, false,
-                "Adds a 'Total Value' number to the tooltip of Shulker Boxes, and it calculates the combined sell price of all items inside it. This applies only to items available on /shop, and items that you can sell in /sell.",
+        prices.add(toggle(eb, "Enable OakHaven Inventory Value", config.enableOakHavenInventoryValue, false,
+                "Displays the total 'sell' value of all OakHaven items in your inventory and open container. You can hover over the numbers to see a list of the most expensive items from that inventory.",
+                v -> config.enableOakHavenInventoryValue = v));
+
+        prices.add(toggle(eb, "Enable Vanilla Shulker Box Value", config.enableShulkerTooltip, false,
+                "Adds a 'Total Value' number to the tooltip of Shulker Boxes, and it calculates the combined sell price of all vanilla items inside it. This applies only to items available on /shop, and items that you can sell in /sell.",
                 v -> config.enableShulkerTooltip = v));
 
+        prices.add(toggle(eb, "Enable OakHaven Shulker Box Value", config.enableOakHavenShulkerValue, false,
+                "Adds a 'Total Value' number to the tooltip of Shulker Boxes, and it calculates the combined sell price of all OakHaven items inside it.",
+                v -> config.enableOakHavenShulkerValue = v));
+
         prices.add(toggle(eb, "Enable Ignore Renamed and Custom Items", config.enableItemNameCheck, false,
-                "Skips items that have a different displayed name to their item ID. This applies to player-renamed items and server-renamed items.",
+                "Skips items that have a different displayed name to their item ID. This applies to player-renamed items and server-renamed items. Items from OakHaven don't count towards this feature. To disable them, turn off OakHaven Price Tooltips",
                 v -> config.enableItemNameCheck = v));
+
+        prices.add(toggle(eb, "Enable Theoretical Sell Price", config.enableTheoreticalSellPrice, true,
+                "Shows the 'sell' price for items that can't be sold in /sell as they are, but could be turned into something that can be sold (for example a Diamond Block uncrafted into Diamonds).",
+                v -> config.enableTheoreticalSellPrice = v));
 
         general.addEntry(prices.build());
 
@@ -98,9 +114,9 @@ public class ModMenuIntegration implements ModMenuApi {
                 "Changes the texture of paper items used for Runes based on its kind (Rare, Legendary, Celestial, Omni, Astral)",
                 v -> config.enableRuneTypeVisualizer = v));
 
-        runes.add(toggle(eb, "Enable Rune Custom Book Visualizer (not working)", config.enableCustomRuneBookTextures, false,
-                "Changes the texture of paper items used for Runes based on the enchantment, applying the texture of a custom enchantment book texture pack that is installed.",
-                v -> config.enableCustomRuneBookTextures = v));
+        runes.add(toggle(eb, "Enable Rune Success Visualizer", config.enableRuneSuccessVisualizer, false,
+                "Displays the success percentage on the bottom side of all Runes as a line; the longer the line, the more success rate.",
+                v -> config.enableRuneSuccessVisualizer = v));
 
         general.addEntry(runes.build());
 
@@ -148,11 +164,26 @@ public class ModMenuIntegration implements ModMenuApi {
                 "Removes the custom names that players can set in chat, displaying their actual name instead.",
                 v -> config.enableRealNameDisplay = v));
 
-
-        chat.add(toggle(eb, "Enable Server Announcement Remover", config.enableAnnouncementRemover, false,
-                "Removes the automatic server messages entirely.",
-                v -> config.enableAnnouncementRemover = v));
         general.addEntry(chat.build());
+
+        SubCategoryBuilder announcements = eb.startSubCategory(Text.literal("Server Messages"))
+                .setExpanded(false);
+
+        announcements.add(toggle(eb, "Hide 'PvP Disabled' Message", config.hidePvpDisabledMessage, false,
+                "Hides the 'PvP is disabled in this world!' message that appears when you hit a player.",
+                v -> config.hidePvpDisabledMessage = v));
+
+        announcements.add(toggle(eb, "Hide 'Rules and ToS' Join Message", config.hideRulesMessage, false,
+                "Hides the message reminding you to follow the server rules and terms of service when you join.",
+                v -> config.hideRulesMessage = v));
+
+        for (AnnouncementFilter.Announcement announcement : AnnouncementFilter.ANNOUNCEMENTS) {
+            announcements.add(toggle(eb, "Hide " + announcement.label(), announcement.isHidden(), false,
+                    "Hides the automatic '" + announcement.label() + "' announcement that the server sends in chat. Turn this off to see it again.",
+                    announcement::setHidden));
+        }
+
+        general.addEntry(announcements.build());
 
         builder.setSavingRunnable(config::save);
 
@@ -170,6 +201,12 @@ public class ModMenuIntegration implements ModMenuApi {
                     entry.tooltip(),
                     entry::set));
         }
+
+        hudFolder.add(eb.startEnumSelector(Text.literal("Quest Tracker Style"), ModConfig.QuestStyle.class, config.questStyle)
+                .setDefaultValue(ModConfig.QuestStyle.COMPACT)
+                .setTooltip(wrap("Select the visual style of the OakHaven and Daily Quest Trackers."))
+                .setSaveConsumer(newValue -> config.questStyle = newValue)
+                .build());
 
         general.addEntry(hudFolder.build());
 
@@ -215,7 +252,7 @@ public class ModMenuIntegration implements ModMenuApi {
 
         ButtonWidget save = ButtonWidget.builder(Text.literal("Save"), button -> {
                     if (screen instanceof ClothConfigScreen clothScreen) {
-                        clothScreen.saveAll(false); // save without closing
+                        clothScreen.saveAll(false);
                         button.setMessage(Text.literal("Saved!"));
                     }
                 })

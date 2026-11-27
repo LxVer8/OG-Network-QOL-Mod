@@ -14,6 +14,10 @@ public class ModConfig {
     public boolean enableInventoryValue = false;
     public boolean enableShulkerTooltip = false;
     public boolean enableItemNameCheck = false;
+    public boolean enableOakHavenPrices = false;
+    public boolean enableOakHavenInventoryValue = false;
+    public boolean enableOakHavenShulkerValue = false;
+    public boolean enableTheoreticalSellPrice = true;
     public boolean enableRuneLevelVisualizer = false;
     public boolean enableRuneTypeVisualizer = false;
     public boolean enableVoteTracker = false;
@@ -22,12 +26,20 @@ public class ModConfig {
     public boolean enableOverMaxIndicator = false;
     public boolean enableHighLevelEnchantFix = false;
     public boolean enableRomanToArabicFix = false;
-    public boolean enableCustomRuneBookTextures = false;
     public boolean voteTrackerRightAligned = false;
     public boolean chatGamesRightAligned = false;
     public boolean chatGamesWaiting = false;
     public long chatGamesNextTime = 0;
-    public boolean enableAnnouncementRemover = true;
+    public boolean hideAnnouncementProximityChat = false;
+    public boolean hideAnnouncementJoinDiscord = false;
+    public boolean hideAnnouncementReportIssues = false;
+    public boolean hideAnnouncementServerRules = false;
+    public boolean hideAnnouncementCustomJoinMessages = false;
+    public boolean hideAnnouncementExploreTheWild = false;
+    public boolean hideAnnouncementAfkRewards = false;
+    public boolean hideAnnouncementLikeUsOnNameMC = false;
+    public boolean hideAnnouncementServerShop = false;
+    public boolean hideAnnouncementVoteForRewards = false;
     public boolean enableChatMessageColorRemover = false;
     public boolean enableChatNameColorRemover = false;
     public boolean enableChatRankRemover = false;
@@ -57,16 +69,64 @@ public class ModConfig {
     public boolean chatRankRemoverActive()         { return enableChatRankRemover; }
     public boolean chatTagRemoverActive()          { return enableChatTagRemover; }
     public boolean realNameDisplayActive()         { return enableRealNameDisplay; }
+    public boolean enableOakHavenFlight = true;
+    public int oakhavenFlightX = 5;
+    public int oakhavenFlightY = 90;
+    public boolean oakhavenFlightRightAligned = false;
+    public boolean enableQuestBossSlayer = true;
+    public boolean enableQuestForaging = true;
+    public boolean enableQuestMerchant = true;
+    public boolean enableQuestMining = true;
+    public boolean enableQuestMobSlayer = true;
+    public boolean questTrackerActive() {
+        return enableQuestBossSlayer || enableQuestForaging || enableQuestMerchant || enableQuestMining || enableQuestMobSlayer;
+    }
+    public boolean enableRuneSuccessVisualizer = true;
+    public boolean hidePvpDisabledMessage = false;
+    public int questTrackerX = 5;
+    public int questTrackerY = 110;
+    public boolean enableDailyQuestTracker = true;
+    public int dailyQuestX = 5;
+    public int dailyQuestY = 180;
+    public QuestStyle questStyle = QuestStyle.COMPACT;
+    public boolean hideAnnouncementBlackFriday = false;
+    public boolean hideRulesMessage = false;
+    public boolean hideCrateMessages = false;
+    public boolean hideDungeonMessages = false;
+    public boolean hideChatGamesMessages = false;
+    public boolean hideNamemcPlayerLikes = false;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File CONFIG_FILE = new File(FabricLoader.getInstance().getConfigDir().toFile(), "ognpricetooltips.json");
 
     public static final ModConfig INSTANCE = load();
 
+    public enum QuestStyle {
+        COMPACT("Compact"),
+        BARS("Bars"),
+        DETAILED("Detailed"),
+        DETAILED_BARS("Detailed + Bars");
+
+        private final String label;
+
+        QuestStyle(String label) {
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
     public static ModConfig load() {
         if (CONFIG_FILE.exists()) {
             try (FileReader reader = new FileReader(CONFIG_FILE)) {
-                return GSON.fromJson(reader, ModConfig.class);
+                ModConfig loaded = GSON.fromJson(reader, ModConfig.class);
+                if (loaded != null) {
+                    if (loaded.questStyle == null) loaded.questStyle = QuestStyle.COMPACT;
+                    return loaded;
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }

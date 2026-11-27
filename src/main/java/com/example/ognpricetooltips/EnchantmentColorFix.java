@@ -9,8 +9,12 @@ import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,19 +30,19 @@ public class EnchantmentColorFix implements ClientModInitializer {
                 !ModConfig.INSTANCE.enableHighLevelEnchantFix && 
                 !ModConfig.INSTANCE.enableRomanToArabicFix) return;
 
-            List<String> activeEnchants = new ArrayList<>();
+            Map<String, Integer> activeEnchants = new HashMap<>();
             
             ItemEnchantmentsComponent enchants = stack.get(DataComponentTypes.ENCHANTMENTS);
             if (enchants != null) {
                 for (RegistryEntry<Enchantment> entry : enchants.getEnchantments()) {
-                    activeEnchants.add(entry.value().description().getString().toLowerCase());
+                    activeEnchants.put(normalize(entry.value().description().getString()), enchants.getLevel(entry));
                 }
             }
             
             ItemEnchantmentsComponent stored = stack.get(DataComponentTypes.STORED_ENCHANTMENTS);
             if (stored != null) {
                 for (RegistryEntry<Enchantment> entry : stored.getEnchantments()) {
-                    activeEnchants.add(entry.value().description().getString().toLowerCase());
+                    activeEnchants.put(normalize(entry.value().description().getString()), stored.getLevel(entry));
                 }
             }
 
@@ -57,24 +61,44 @@ public class EnchantmentColorFix implements ClientModInitializer {
                 if (ModConfig.INSTANCE.enableHighLevelEnchantFix) {
                     Matcher matcher = LEVEL_PATTERN.matcher(lineText);
                     if (matcher.find()) {
-                        int level = Integer.parseInt(matcher.group(1));
-                        String roman = toRoman(level);
-                        lineText = lineText.replace("enchantment.level." + level, roman);
+                        int lvl = Integer.parseInt(matcher.group(1));
+                        String roman = toRoman(lvl);
+                        lineText = lineText.replace("enchantment.level." + lvl, roman);
                     }
                 }
 
-                String lowerLineText = lineText.toLowerCase();
+                String normalizedLine = normalize(lineText);
+                String matchedRune = null;
+                int level = -1;
 
-                boolean isActiveEnchant = false;
-                for (String active : activeEnchants) {
-                    if (lowerLineText.contains(active)) {
-                        isActiveEnchant = true;
+                for (String runeName : sortedRunes) {
+                    String normalizedRuneName = normalize(runeName);
+                    if (normalizedLine.contains(normalizedRuneName)) {
+                        matchedRune = runeName;
+                        level = activeEnchants.getOrDefault(normalizedRuneName, RuneHighlighter.extractLevel(lineText));
                         break;
                     }
                 }
 
-                if (!isActiveEnchant) {
+                if (matchedRune == null) {
                     continue;
+                }
+
+                if (level > 1 && ModConfig.INSTANCE.enableHighLevelEnchantFix) {
+                    String roman = toRoman(level);
+                    boolean hasLevel = false;
+                    String[] parts = lineText.split(" ");
+                    if (parts.length > 1) {
+                        String lastPart = parts[parts.length - 1];
+                        if (lastPart.equals(roman) || lastPart.equals(String.valueOf(level))) {
+                            hasLevel = true;
+                        }
+                    }
+                    
+                    if (!hasLevel) {
+                        lineText = lineText + " " + roman;
+                        normalizedLine = normalize(lineText);
+                    }
                 }
 
                 if (ModConfig.INSTANCE.enableRomanToArabicFix) {
@@ -85,36 +109,28 @@ public class EnchantmentColorFix implements ClientModInitializer {
                             int arabic = romanToInt(lastPart);
                             if (arabic > 0) {
                                 lineText = lineText.substring(0, lineText.length() - lastPart.length()) + arabic;
-                                lowerLineText = lineText.toLowerCase();
+                                normalizedLine = normalize(lineText);
                             }
                         }
                     }
                 }
 
-                for (String runeName : sortedRunes) {
-                    String lowerRuneName = runeName.toLowerCase();
-                    
-                    if (lowerLineText.contains(lowerRuneName)) {
-                        int level = RuneHighlighter.extractLevel(lineText);
-                        Integer maxLevel = RuneHighlighter.MAX_LEVELS.get(runeName);
-                        
-                        boolean isOverMax = ModConfig.INSTANCE.enableOverMaxIndicator && (maxLevel != null && level > maxLevel);
-                        String newLineText = lineText;
-                        
-                        if (isOverMax) {
-                            int extraLevels = level - maxLevel;
-                            newLineText = "+".repeat(extraLevels) + lineText;
-                        }
-                        
-                        Formatting color = ModConfig.INSTANCE.enableEnchantmentColorFix ? RuneHighlighter.getRuneColor(runeName, level) : null;
-                        
-                        if (color != null) {
-                            lines.set(i, Text.literal(newLineText).formatted(color));
-                        } else if (!newLineText.equals(originalText)) {
-                            lines.set(i, Text.literal(newLineText).setStyle(line.getStyle()));
-                        }
-                        break; 
-                    }
+                Integer maxLevel = RuneHighlighter.MAX_LEVELS.get(matchedRune);
+                
+                boolean isOverMax = ModConfig.INSTANCE.enableOverMaxIndicator && (maxLevel != null && level > maxLevel);
+                String newLineText = lineText;
+                
+                if (isOverMax) {
+                    int extraLevels = level - maxLevel;
+                    newLineText = "+".repeat(extraLevels) + lineText;
+                }
+                
+                Formatting color = ModConfig.INSTANCE.enableEnchantmentColorFix ? RuneHighlighter.getRuneColor(matchedRune, level) : null;
+                
+                if (color != null) {
+                    lines.set(i, Text.literal(newLineText).formatted(color));
+                } else if (!newLineText.equals(originalText)) {
+                    lines.set(i, Text.literal(newLineText).setStyle(line.getStyle()));
                 }
             }
         });
@@ -145,5 +161,11 @@ public class EnchantmentColorFix implements ClientModInitializer {
             case 'I' -> 1; case 'V' -> 5; case 'X' -> 10; case 'L' -> 50;
             case 'C' -> 100; case 'D' -> 500; case 'M' -> 1000; default -> 0;
         };
+    }
+
+    private static String normalize(String input) {
+        if (input == null) return "";
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
     }
 }

@@ -7,20 +7,18 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.texture.Sprite;
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.random.Random;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,7 +32,7 @@ public class RuneHighlighter implements ClientModInitializer {
     private static final Identifier ASTRAL_TEXTURE = Identifier.of("ognpricetooltips", "textures/item/astral_paper.png");
 
     public static final Set<String> OMNI_RUNES = Set.of(
-        "Bane Of Bacon", "Black Bucket", "Cubism", "Dolphin Master", "Dragon Piercing", "Dredge", "End Slayer", "Ender Veil", "Executioner", "Experience", "Extinguish", "Farmers Grace", "Field Sweep", "Gills", "Grounded", "Guardian Protector", "Guardians Wrath", "Hard Hat", "Harvest", "Incinerate", "Infinite Bucket", "Lumberjack", "Maelstrom", "Magma Walker", "Nocturnal", "Omni Omen", "Padding", "Rocket Reserve", "Roped Arrow", "Tilling", "Web Walker", "Wither Piercing"
+        "Bane Of Bacon", "Black Bucket", "Cubism", "Dolphin Master", "Dragon Piercing", "Dredge", "End Slayer", "Ender Veil", "Executioner", "Experience", "Extinguish", "Farmers Grace", "Field Sweep", "Gills", "Grounded", "Guardian Protection", "Guardians Wrath", "Hard Hat", "Harvest", "Incinerate", "Infinite Bucket", "Lumberjack", "Maelstrom", "Magma Walker", "Nocturnal", "Omni Omen", "Padding", "Rocket Reserve", "Roped Arrow", "Tilling", "Web Walker", "Wither Piercing"
     );
 
     public static final Set<String> ASTRAL_RUNES = Set.of(
@@ -46,7 +44,7 @@ public class RuneHighlighter implements ClientModInitializer {
         MAX_LEVELS.put("Bane Of Bacon", 5); MAX_LEVELS.put("Black Bucket", 1); MAX_LEVELS.put("Cubism", 5); MAX_LEVELS.put("Dolphin Master", 2);
         MAX_LEVELS.put("Dragon Piercing", 5); MAX_LEVELS.put("Dredge", 5); MAX_LEVELS.put("End Slayer", 5); MAX_LEVELS.put("Ender Veil", 1);
         MAX_LEVELS.put("Executioner", 5); MAX_LEVELS.put("Experience", 5); MAX_LEVELS.put("Extinguish", 10); MAX_LEVELS.put("Farmers Grace", 1);
-        MAX_LEVELS.put("Field Sweep", 5); MAX_LEVELS.put("Gills", 1); MAX_LEVELS.put("Grounded", 1); MAX_LEVELS.put("Guardian Protector", 9);
+        MAX_LEVELS.put("Field Sweep", 5); MAX_LEVELS.put("Gills", 1); MAX_LEVELS.put("Grounded", 1); MAX_LEVELS.put("Guardian Protection", 9);
         MAX_LEVELS.put("Guardians Wrath", 5); MAX_LEVELS.put("Hard Hat", 1); MAX_LEVELS.put("Harvest", 1); MAX_LEVELS.put("Incinerate", 1);
         MAX_LEVELS.put("Infinite Bucket", 1); MAX_LEVELS.put("Lumberjack", 3); MAX_LEVELS.put("Maelstrom", 3); MAX_LEVELS.put("Magma Walker", 5);
         MAX_LEVELS.put("Nocturnal", 1); MAX_LEVELS.put("Omni Omen", 5); MAX_LEVELS.put("Padding", 1); MAX_LEVELS.put("Rocket Reserve", 5);
@@ -113,7 +111,7 @@ public class RuneHighlighter implements ClientModInitializer {
         if (stack.get(DataComponentTypes.CUSTOM_NAME) == null) return;
 
         String name = stack.getName().getString();
-        String lowerName = name.toLowerCase();
+        String lowerName = normalize(name);
 
         List<Map.Entry<String, Integer>> sortedEntries = new ArrayList<>(MAX_LEVELS.entrySet());
         sortedEntries.sort((a, b) -> Integer.compare(b.getKey().length(), a.getKey().length()));
@@ -122,37 +120,35 @@ public class RuneHighlighter implements ClientModInitializer {
             String runeName = entry.getKey();
             int maxLevel = entry.getValue();
 
-            if (lowerName.contains(runeName.toLowerCase())) {
+            if (lowerName.contains(normalize(runeName))) {
                 int level = extractLevel(name);
                 
                 if (level > 0) {
                     if (ModConfig.INSTANCE.enableRuneTypeVisualizer) {
-                        boolean drawnCustom = drawCustomRuneTexture(context, stack, x, y, client);
-
-                        if (!drawnCustom) {
-                            Identifier textureToDraw = getRuneTexture(runeName, level);
-                            if (!textureToDraw.equals(COMMON_TEXTURE)) {
-                                context.drawTexture(
-                                    RenderPipelines.GUI_TEXTURED, 
-                                    textureToDraw, 
-                                    x, y, 
-                                    0, 0, 
-                                    16, 16, 
-                                    16, 16
-                                );
-                            }
+                        Identifier textureToDraw = getRuneTexture(runeName, level);
+                        if (!textureToDraw.equals(COMMON_TEXTURE)) {
+                            context.drawTexture(
+                                RenderPipelines.GUI_TEXTURED, 
+                                textureToDraw, 
+                                x, y, 
+                                0, 0, 
+                                16, 16, 
+                                16, 16
+                            );
                         }
                     }
 
                     if (ModConfig.INSTANCE.enableRuneLevelVisualizer) {
                         int drawX = x + 11; 
-                        int drawY = y + 9;
+                        int drawY = y + 1;
 
                         context.getMatrices().pushMatrix();
                         context.getMatrices().translate(drawX, drawY);
                         context.getMatrices().scale(0.9f, 0.9f);
 
-                        if (level == maxLevel) {
+                        if (level > maxLevel) {
+                            context.drawText(client.textRenderer, "●", 0, 0, 0xFFAA00AA, true);
+                        } else if (level == maxLevel) {
                             context.drawText(client.textRenderer, "●", 0, 0, 0xFF00FF00, true);
                         } else if (level == maxLevel - 1) {
                             context.drawText(client.textRenderer, "●", 0, 0, 0xFFFFA500, true);
@@ -166,34 +162,6 @@ public class RuneHighlighter implements ClientModInitializer {
                 break; 
             }
         }
-    }
-
-    private static boolean drawCustomRuneTexture(DrawContext context, ItemStack stack, int x, int y, MinecraftClient client) {
-        if (!ModConfig.INSTANCE.enableCustomRuneBookTextures) return false;
-
-        ItemRenderState state = new ItemRenderState();
-        client.getItemModelManager().update(state, stack, ItemDisplayContext.GUI, client.world, client.player, 0);
-        if (state.isEmpty()) return false;
-
-        Sprite sprite = state.getParticleSprite(Random.create());
-        if (sprite == null) return false;
-        Identifier spriteId = sprite.getContents().getId();
-
-        if (spriteId.equals(Identifier.of("minecraft", "item/paper"))) {
-            return false;
-        }
-
-        Identifier textureId = Identifier.of(spriteId.getNamespace(), "textures/" + spriteId.getPath() + ".png");
-
-        context.drawTexture(
-            RenderPipelines.GUI_TEXTURED,
-            textureId,
-            x, y,
-            0, 0,
-            16, 16,
-            16, 16
-        );
-        return true;
     }
 
     public static int extractLevel(String name) {
@@ -226,40 +194,50 @@ public class RuneHighlighter implements ClientModInitializer {
     }
 
     public static String getRuneTier(String name, int level) {
-        if (OMNI_RUNES.contains(name)) return "OMNI";
-        if (ASTRAL_RUNES.contains(name)) return "ASTRAL";
+        String norm = normalize(name);
 
-        return switch (name) {
-            case "Bane Of Arthropods" -> level >= 8 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
-            case "Blast Protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
-            case "Breach" -> level >= 3 ? "CELESTIAL" : "COMMON";
-            case "Density" -> level >= 4 ? "CELESTIAL" : "COMMON";
-            case "Efficiency" -> level >= 7 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
-            case "Feather Falling" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
-            case "Fire Protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
-            case "Fortune" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Frost Walker" -> level >= 6 ? "CELESTIAL" : level >= 3 ? "LEGENDARY" : level >= 2 ? "RARE" : "COMMON";
-            case "Impaling" -> level >= 8 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
-            case "Infinity" -> level >= 1 ? "CELESTIAL" : "COMMON";
-            case "Knockback" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Looting" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Loyalty" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Piercing" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Power" -> level >= 7 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : "COMMON";
-            case "Projectile Protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
-            case "Protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
-            case "Punch" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Quick Charge" -> level >= 4 ? "CELESTIAL" : level >= 3 ? "LEGENDARY" : "COMMON";
-            case "Respiration" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Riptide" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Sharpness" -> level >= 7 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
-            case "Smite" -> level >= 8 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
-            case "Soul Speed" -> level >= 2 ? "CELESTIAL" : "COMMON";
-            case "Sweeping Edge" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Swift Sneak" -> level >= 1 ? "CELESTIAL" : "COMMON";
-            case "Thorns" -> level >= 2 ? "CELESTIAL" : "COMMON";
-            case "Unbreaking" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
-            case "Wind Burst" -> level >= 1 ? "CELESTIAL" : "COMMON";
+        if (norm.equals("guardian protection") || norm.equals("guardian protector")) {
+            return "OMNI";
+        }
+
+        for (String omni : OMNI_RUNES) {
+            if (normalize(omni).equals(norm)) return "OMNI";
+        }
+        for (String astral : ASTRAL_RUNES) {
+            if (normalize(astral).equals(norm)) return "ASTRAL";
+        }
+
+        return switch (norm) {
+            case "bane of arthropods" -> level >= 8 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
+            case "blast protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
+            case "breach" -> level >= 3 ? "CELESTIAL" : "COMMON";
+            case "density" -> level >= 4 ? "CELESTIAL" : "COMMON";
+            case "efficiency" -> level >= 7 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
+            case "feather falling" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
+            case "fire protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
+            case "fortune" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "frost walker" -> level >= 6 ? "CELESTIAL" : level >= 3 ? "LEGENDARY" : level >= 2 ? "RARE" : "COMMON";
+            case "impaling" -> level >= 8 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
+            case "infinity" -> level >= 1 ? "CELESTIAL" : "COMMON";
+            case "knockback" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "looting" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "loyalty" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "piercing" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "power" -> level >= 7 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : "COMMON";
+            case "projectile protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
+            case "protection" -> level >= 7 ? "CELESTIAL" : level >= 5 ? "LEGENDARY" : level >= 4 ? "RARE" : "COMMON";
+            case "punch" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "quick charge" -> level >= 4 ? "CELESTIAL" : level >= 3 ? "LEGENDARY" : "COMMON";
+            case "respiration" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "riptide" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "sharpness" -> level >= 7 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
+            case "smite" -> level >= 8 ? "CELESTIAL" : level >= 6 ? "LEGENDARY" : level >= 5 ? "RARE" : "COMMON";
+            case "soul speed" -> level >= 2 ? "CELESTIAL" : "COMMON";
+            case "sweeping edge" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "swift sneak" -> level >= 1 ? "CELESTIAL" : "COMMON";
+            case "thorns" -> level >= 2 ? "CELESTIAL" : "COMMON";
+            case "unbreaking" -> level >= 6 ? "CELESTIAL" : level >= 4 ? "LEGENDARY" : level >= 3 ? "RARE" : "COMMON";
+            case "wind burst" -> level >= 1 ? "CELESTIAL" : "COMMON";
             default -> "COMMON";
         };
     }
@@ -286,5 +264,11 @@ public class RuneHighlighter implements ClientModInitializer {
             case "RARE" -> RARE_TEXTURE;
             default -> COMMON_TEXTURE;
         };
+    }
+
+    private static String normalize(String input) {
+        if (input == null) return "";
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
     }
 }

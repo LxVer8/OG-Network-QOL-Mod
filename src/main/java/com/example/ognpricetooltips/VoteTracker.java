@@ -14,6 +14,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Locale;
 
 public class VoteTracker implements ClientModInitializer {
 
@@ -135,7 +136,7 @@ public class VoteTracker implements ClientModInitializer {
 
         if (!msg.contains(playerName)) return;
 
-        String lower = msg.toLowerCase(java.util.Locale.ROOT);
+        String lower = msg.toLowerCase(Locale.ROOT);
 
         if (lower.contains("minecraft-mp.com") || lower.contains("minecraft-mp ")) {
             recordVoteFor("Minecraft-MP");

@@ -14,7 +14,7 @@ public class ChatModifier {
 
     private record Seg(String text, Style style) {}
 
-    private record Parsed(List<Seg> segs, int nameStart, int nameEnd, int nameFrom, int barIdx, int msgFrom,
+    private record Parsed(List<Seg> segs, int nameStart, int nameEnd, int nameFrom, int msgFrom,
                           String realName, Seg rankGlyph, Seg rankSpace) {}
 
     private static final Style WHITE = Style.EMPTY.withColor(Formatting.WHITE);
@@ -40,7 +40,8 @@ public class ChatModifier {
         boolean removeTag = cfg.chatTagRemoverActive();
         boolean realName = cfg.realNameDisplayActive();
 
-        if (!(messageColor || nameColor || removeRank || removeTag || realName)) return message;
+        boolean anyChatMod = messageColor || nameColor || removeRank || removeTag || realName;
+        if (!anyChatMod) return message;
 
         Parsed p = parse(message);
         if (p == null) return message;
@@ -65,42 +66,53 @@ public class ChatModifier {
                 break;
             }
         }
-        if (nameStart < 0 || realName == null || realName.isEmpty()) return null;
-
-        int nameEnd = nameStart;
-        while (nameEnd < segs.size()) {
-            String cmd = clickCommand(segs.get(nameEnd).style());
-            if (cmd == null || !cmd.startsWith("/msg ")) break;
-            nameEnd++;
-        }
 
         int barIdx = -1;
-        for (int i = nameEnd; i < segs.size(); i++) {
-            if (segs.get(i).text().trim().equals("»")) {
-                barIdx = i;
-                break;
+        if (nameStart != -1) {
+            int nameEnd = nameStart;
+            while (nameEnd < segs.size()) {
+                String cmd = clickCommand(segs.get(nameEnd).style());
+                if (cmd == null || !cmd.startsWith("/msg ")) break;
+                nameEnd++;
+            }
+
+            for (int i = nameEnd; i < segs.size(); i++) {
+                if (segs.get(i).text().trim().equals("»")) {
+                    barIdx = i;
+                    break;
+                }
             }
         }
-        if (barIdx < 0) return null;
 
-        int nameFrom = nameStart;
-        Seg rankGlyph = null;
-        Seg rankSpace = null;
-        Seg first = segs.get(nameStart);
-        if (first.text().length() == 1 && Character.getType(first.text().charAt(0)) == Character.PRIVATE_USE) {
-            rankGlyph = first;
-            nameFrom++;
-            if (nameFrom < nameEnd && segs.get(nameFrom).text().isBlank()) {
-                rankSpace = segs.get(nameFrom);
+        if (nameStart != -1 && barIdx != -1 && realName != null) {
+            int nameEnd = nameStart;
+            while (nameEnd < segs.size()) {
+                String cmd = clickCommand(segs.get(nameEnd).style());
+                if (cmd == null || !cmd.startsWith("/msg ")) break;
+                nameEnd++;
+            }
+
+            int nameFrom = nameStart;
+            Seg rankGlyph = null;
+            Seg rankSpace = null;
+            Seg first = segs.get(nameStart);
+            if (first.text().length() == 1 && Character.getType(first.text().charAt(0)) == Character.PRIVATE_USE) {
+                rankGlyph = first;
                 nameFrom++;
+                if (nameFrom < nameEnd && segs.get(nameFrom).text().isBlank()) {
+                    rankSpace = segs.get(nameFrom);
+                    nameFrom++;
+                }
+            }
+
+            if (nameFrom < nameEnd) {
+                int msgFrom = barIdx + 1;
+                if (msgFrom < segs.size() && segs.get(msgFrom).text().isBlank()) msgFrom++;
+                return new Parsed(segs, nameStart, nameEnd, nameFrom, msgFrom, realName, rankGlyph, rankSpace);
             }
         }
-        if (nameFrom >= nameEnd) return null;
 
-        int msgFrom = barIdx + 1;
-        if (msgFrom < segs.size() && segs.get(msgFrom).text().isBlank()) msgFrom++;
-
-        return new Parsed(segs, nameStart, nameEnd, nameFrom, barIdx, msgFrom, realName, rankGlyph, rankSpace);
+        return null;
     }
 
     private static Text buildCustom(Parsed p, boolean messageColor, boolean nameColor,

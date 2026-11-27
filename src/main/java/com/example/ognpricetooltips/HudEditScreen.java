@@ -19,6 +19,9 @@ public class HudEditScreen extends Screen {
     private boolean draggingVote = false;
     private boolean draggingChat = false;
     private boolean draggingSeismic = false;
+    private boolean draggingOakHavenFlight = false;
+    private boolean draggingQuest = false;
+    private boolean draggingDaily = false;
 
     private int dragOffsetX = 0;
     private int dragOffsetY = 0;
@@ -26,9 +29,14 @@ public class HudEditScreen extends Screen {
     private static final int VOTE_WIDTH = VoteTracker.WIDTH;
     private static final int CHAT_WIDTH = ChatGamesTracker.WIDTH;
     private static final int SEISMIC_WIDTH = SeismicSlamTracker.WIDTH;
+    private static final int FLIGHT_WIDTH = OakHavenFlightTracker.WIDTH;
+    private static final int QUEST_WIDTH = OakHavenQuestTracker.WIDTH;
+    private static final int DAILY_WIDTH = DailyQuestTracker.WIDTH;
+
     private static final int VOTE_HEIGHT = 36;
     private static final int CHAT_HEIGHT = 10;
     private static final int SEISMIC_HEIGHT = 10;
+    private static final int FLIGHT_HEIGHT = 10;
 
     private static final int PANEL_W = 180;
     private static final int ROW_H = 24;
@@ -57,9 +65,16 @@ public class HudEditScreen extends Screen {
             ModConfig.INSTANCE.chatGamesY = 50;
             ModConfig.INSTANCE.seismicSlamX = 5;
             ModConfig.INSTANCE.seismicSlamY = 70;
+            ModConfig.INSTANCE.oakhavenFlightX = 5;
+            ModConfig.INSTANCE.oakhavenFlightY = 90;
+            ModConfig.INSTANCE.questTrackerX = 5;
+            ModConfig.INSTANCE.questTrackerY = 110;
+            ModConfig.INSTANCE.dailyQuestX = 5;
+            ModConfig.INSTANCE.dailyQuestY = 180;
             ModConfig.INSTANCE.voteTrackerRightAligned = false;
             ModConfig.INSTANCE.chatGamesRightAligned = false;
             ModConfig.INSTANCE.seismicSlamRightAligned = false;
+            ModConfig.INSTANCE.oakhavenFlightRightAligned = false;
         }).dimensions(this.width / 2 - 100, 10, 200, 20).build());
 
         eyeButton = this.addDrawableChild(ButtonWidget.builder(Text.empty(), button -> {
@@ -104,8 +119,6 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0x88000000);
-
         MinecraftClient client = MinecraftClient.getInstance();
 
         if (ModConfig.INSTANCE.enableVoteTracker) {
@@ -116,6 +129,15 @@ public class HudEditScreen extends Screen {
         }
         if (ModConfig.INSTANCE.enableSeismicSlamTimer) {
             drawBox(context, ModConfig.INSTANCE.seismicSlamX, ModConfig.INSTANCE.seismicSlamY, SEISMIC_WIDTH, SEISMIC_HEIGHT, draggingSeismic);
+        }
+        if (ModConfig.INSTANCE.enableOakHavenFlight) {
+            drawBox(context, ModConfig.INSTANCE.oakhavenFlightX, ModConfig.INSTANCE.oakhavenFlightY, FLIGHT_WIDTH, FLIGHT_HEIGHT, draggingOakHavenFlight);
+        }
+        if (ModConfig.INSTANCE.questTrackerActive()) {
+            drawBox(context, ModConfig.INSTANCE.questTrackerX, ModConfig.INSTANCE.questTrackerY, QUEST_WIDTH, OakHavenQuestTracker.getHeight(), draggingQuest);
+        }
+        if (ModConfig.INSTANCE.enableDailyQuestTracker) {
+            drawBox(context, ModConfig.INSTANCE.dailyQuestX, ModConfig.INSTANCE.dailyQuestY, DAILY_WIDTH, DailyQuestTracker.getHeight(), draggingDaily);
         }
 
         if (ModConfig.INSTANCE.enableVoteTracker) {
@@ -130,6 +152,16 @@ public class HudEditScreen extends Screen {
             SeismicSlamTracker.render(context, client, ModConfig.INSTANCE.seismicSlamX, ModConfig.INSTANCE.seismicSlamY,
                     ModConfig.INSTANCE.seismicSlamRightAligned, true);
         }
+        if (ModConfig.INSTANCE.enableOakHavenFlight) {
+            OakHavenFlightTracker.render(context, client, ModConfig.INSTANCE.oakhavenFlightX, ModConfig.INSTANCE.oakhavenFlightY,
+                    ModConfig.INSTANCE.oakhavenFlightRightAligned, true);
+        }
+        if (ModConfig.INSTANCE.questTrackerActive()) {
+            OakHavenQuestTracker.render(context, client, ModConfig.INSTANCE.questTrackerX, ModConfig.INSTANCE.questTrackerY);
+        }
+        if (ModConfig.INSTANCE.enableDailyQuestTracker) {
+            DailyQuestTracker.render(context, client, ModConfig.INSTANCE.dailyQuestX, ModConfig.INSTANCE.dailyQuestY);
+        }
 
         if (eyeOpen) {
             context.fill(panelX - 1, panelY - 1, panelX + PANEL_W + 1, panelY + panelH + 1, 0xFFAAAAAA);
@@ -141,7 +173,12 @@ public class HudEditScreen extends Screen {
         drawEyeIcon(context);
         drawFlipHint(context);
 
-        context.drawCenteredTextWithShadow(this.textRenderer, "Drag the boxes to move them. Right-click a box to flip its alignment.", this.width / 2, this.height - 50, 0xFFFFFF);
+        String help = "Drag the boxes to move them. Right-click a box to flip its alignment or change its style.";
+        context.drawCenteredTextWithShadow(this.textRenderer, help, this.width / 2, this.height - 50, 0xFFFFFF);
+    }
+
+    @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
     }
 
     private void drawEyeIcon(DrawContext context) {
@@ -155,17 +192,19 @@ public class HudEditScreen extends Screen {
     }
 
     private void drawFlipHint(DrawContext context) {
-        String hint = "Right click to flip the object horizontally";
+        String hint = "Right click to flip";
 
         int buttonLeft = this.width / 2 - 100;
         int available = buttonLeft - 6 - 4;
         int textWidth = this.textRenderer.getWidth(hint);
 
-        float scale = Math.min(0.75f, available / (float) textWidth);
+        float scale = Math.min(1.5f, available / (float) textWidth);
         if (scale < 0.4f) return;
 
         float x = buttonLeft - 6 - textWidth * scale;
         float y = 10 + (20 - 9 * scale) / 2f;
+
+        context.fill((int) x - 3, (int) y - 2, (int) (x + textWidth * scale) + 3, (int) (y + 9 * scale) + 2, 0x99000000);
 
         context.getMatrices().pushMatrix();
         context.getMatrices().translate(x, y);
@@ -201,6 +240,12 @@ public class HudEditScreen extends Screen {
                 && isHovered(mouseX, mouseY, ModConfig.INSTANCE.chatGamesX, ModConfig.INSTANCE.chatGamesY, CHAT_WIDTH, CHAT_HEIGHT);
         boolean overSeismic = ModConfig.INSTANCE.enableSeismicSlamTimer
                 && isHovered(mouseX, mouseY, ModConfig.INSTANCE.seismicSlamX, ModConfig.INSTANCE.seismicSlamY, SEISMIC_WIDTH, SEISMIC_HEIGHT);
+        boolean overFlight = ModConfig.INSTANCE.enableOakHavenFlight
+                && isHovered(mouseX, mouseY, ModConfig.INSTANCE.oakhavenFlightX, ModConfig.INSTANCE.oakhavenFlightY, FLIGHT_WIDTH, FLIGHT_HEIGHT);
+        boolean overQuest = ModConfig.INSTANCE.questTrackerActive()
+                && isHovered(mouseX, mouseY, ModConfig.INSTANCE.questTrackerX, ModConfig.INSTANCE.questTrackerY, QUEST_WIDTH, OakHavenQuestTracker.getHeight());
+        boolean overDaily = ModConfig.INSTANCE.enableDailyQuestTracker
+                && isHovered(mouseX, mouseY, ModConfig.INSTANCE.dailyQuestX, ModConfig.INSTANCE.dailyQuestY, DAILY_WIDTH, DailyQuestTracker.getHeight());
 
         if (click.button() == 0) {
             if (inPanel) {
@@ -228,7 +273,29 @@ public class HudEditScreen extends Screen {
                 dragOffsetY = (int) mouseY - ModConfig.INSTANCE.seismicSlamY;
                 return true;
             }
+            if (overFlight) {
+                this.setFocused(null);
+                draggingOakHavenFlight = true;
+                dragOffsetX = (int) mouseX - ModConfig.INSTANCE.oakhavenFlightX;
+                dragOffsetY = (int) mouseY - ModConfig.INSTANCE.oakhavenFlightY;
+                return true;
+            }
+            if (overQuest) {
+                this.setFocused(null);
+                draggingQuest = true;
+                dragOffsetX = (int) mouseX - ModConfig.INSTANCE.questTrackerX;
+                dragOffsetY = (int) mouseY - ModConfig.INSTANCE.questTrackerY;
+                return true;
+            }
+            if (overDaily) {
+                this.setFocused(null);
+                draggingDaily = true;
+                dragOffsetX = (int) mouseX - ModConfig.INSTANCE.dailyQuestX;
+                dragOffsetY = (int) mouseY - ModConfig.INSTANCE.dailyQuestY;
+                return true;
+            }
         } else if (click.button() == 1 && !inPanel) {
+            this.setFocused(null);
             if (overVote) {
                 ModConfig.INSTANCE.voteTrackerRightAligned = !ModConfig.INSTANCE.voteTrackerRightAligned;
                 ModConfig.INSTANCE.save();
@@ -244,8 +311,13 @@ public class HudEditScreen extends Screen {
                 ModConfig.INSTANCE.save();
                 return true;
             }
+            if (overFlight) {
+                ModConfig.INSTANCE.oakhavenFlightRightAligned = !ModConfig.INSTANCE.oakhavenFlightRightAligned;
+                ModConfig.INSTANCE.save();
+                return true;
+            }
         }
-        return clearFocus(super.mouseClicked(click, doubled));
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
@@ -268,6 +340,21 @@ public class HudEditScreen extends Screen {
             ModConfig.INSTANCE.seismicSlamY = (int) mouseY - dragOffsetY;
             return true;
         }
+        if (draggingOakHavenFlight) {
+            ModConfig.INSTANCE.oakhavenFlightX = (int) mouseX - dragOffsetX;
+            ModConfig.INSTANCE.oakhavenFlightY = (int) mouseY - dragOffsetY;
+            return true;
+        }
+        if (draggingQuest) {
+            ModConfig.INSTANCE.questTrackerX = (int) mouseX - dragOffsetX;
+            ModConfig.INSTANCE.questTrackerY = (int) mouseY - dragOffsetY;
+            return true;
+        }
+        if (draggingDaily) {
+            ModConfig.INSTANCE.dailyQuestX = (int) mouseX - dragOffsetX;
+            ModConfig.INSTANCE.dailyQuestY = (int) mouseY - dragOffsetY;
+            return true;
+        }
         return super.mouseDragged(click, offsetX, offsetY);
     }
 
@@ -277,6 +364,9 @@ public class HudEditScreen extends Screen {
             draggingVote = false;
             draggingChat = false;
             draggingSeismic = false;
+            draggingOakHavenFlight = false;
+            draggingQuest = false;
+            draggingDaily = false;
         }
         return super.mouseReleased(click);
     }
