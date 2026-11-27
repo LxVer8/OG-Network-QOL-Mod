@@ -1,5 +1,5 @@
 ## Pessing Y+U opens the mod menu, to disable, enable, or tweak the mod.
-### Check the Modrinth release [here]([https://github.com/LxVer8/OG-Network-QOL-Mod/tree/main](https://modrinth.com/mod/og-network-qol))
+### Check the Modrinth release [here](https://modrinth.com/mod/og-network-qol)
 
 # Features:
 ### Prices & Values:
